@@ -160,15 +160,7 @@ export interface PreflightFlag {
   rule:     string;
   detail:   string;
   severity: 'hold' | 'flag' | 'warn';
-  // hold — approval gate triggered; output held pending user action
-  // flag — safety content prepended; continues to model audit
-  // warn — advisory; logged, does not block output
 }
-
-// PreflightInput — what the pre-flight checker receives.
-// postApproval: true when this response follows a cleared approval gate
-// in the current turn. Suppresses Rules 1 and 2 which would otherwise
-// false-positive on post-approval confirmation language.
 
 export interface PreflightInput {
   responseText:   string;
@@ -179,14 +171,9 @@ export interface PreflightInput {
 
 export interface ModelAuditResult {
   result:      AuditResult;
-  issue?:      string;       // what is wrong
-  correction?: string;       // specific data point or framing fix to inject into regen prompt
-  // revisedContent removed — revision is handled by primary call regen at 0.7 temperature
-  // correction is a targeted instruction, not a full rewrite
+  issue?:      string;
+  correction?: string;
 }
-
-// ModelAuditInput — what the model audit receives.
-// preflightFlags: findings from Layer 1 included as context for Layer 2.
 
 export interface ModelAuditInput {
   responseText:   string;
@@ -269,4 +256,27 @@ export interface PrimaryCallOutput {
   outputTokens:  number;
   durationMs:    number;
   model:         string;
+}
+
+// ── Output Router ─────────────────────────────────────────────
+
+export interface RouteInstruction {
+  channel:     'app' | 'sms' | 'push' | 'log';
+  recipients?: string[];   // phone numbers for SMS, FCM tokens for push
+  sessionId:   string;
+  requestId:   string;
+}
+
+export interface FailedRecipient {
+  recipient: string;
+  reason:    string;
+}
+
+export interface RouteResult {
+  channel:      'app' | 'sms' | 'push' | 'log';
+  success:      boolean;            // true only if all recipients succeeded
+  delivered:    string[];           // recipients successfully delivered to
+  failed:       FailedRecipient[];  // per-recipient failures with reason
+  segmentCount: number;             // SMS segments sent (1 for app/push/log)
+  requestId:    string;
 }
