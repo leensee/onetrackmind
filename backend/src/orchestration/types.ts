@@ -262,7 +262,7 @@ export interface PrimaryCallOutput {
 
 export interface RouteInstruction {
   channel:     'app' | 'sms' | 'push' | 'log';
-  recipients?: string[];   // phone numbers for SMS, FCM tokens for push
+  recipients?: string[];
   sessionId:   string;
   requestId:   string;
 }
@@ -274,9 +274,31 @@ export interface FailedRecipient {
 
 export interface RouteResult {
   channel:      'app' | 'sms' | 'push' | 'log';
-  success:      boolean;            // true only if all recipients succeeded
-  delivered:    string[];           // recipients successfully delivered to
-  failed:       FailedRecipient[];  // per-recipient failures with reason
-  segmentCount: number;             // SMS segments sent (1 for app/push/log)
+  success:      boolean;
+  delivered:    string[];
+  failed:       FailedRecipient[];
+  segmentCount: number;
   requestId:    string;
+}
+
+// ── Session Persistence ───────────────────────────────────────
+
+export type SessionLogEntryType =
+  | 'session_open'
+  | 'user_message'
+  | 'assistant_response'
+  | 'flag_raised'
+  | 'flag_acknowledged'
+  | 'approval_decision'
+  | 'route_result'
+  | 'session_close';
+
+export interface SessionLogEntry {
+  entryId:       string;   // UUID — enables idempotent replay
+  sessionId:     string;
+  userId:        string;
+  entryType:     SessionLogEntryType;
+  payload:       string;   // JSON-serialized, validated at write time
+  schemaVersion: number;   // payload schema version — used by replay for migration
+  timestamp:     string;   // ISO 8601
 }
