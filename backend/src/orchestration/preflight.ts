@@ -109,7 +109,7 @@ function checkSafetyFlagNotSurfaced(
     const significantTerms = safetyFlag.content
       .split(/\s+/)
       .map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ''))
-      .filter(w => w.length > 4);
+      .filter(w => w.length >= 4);
 
     if (significantTerms.length === 0) continue;
 
