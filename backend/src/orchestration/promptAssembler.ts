@@ -140,6 +140,11 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const dynamicInjection = styleBlock + contextBlock;
   const dynamicTokens    = estimateTokens(dynamicInjection);
 
+  // Unconditional metric — surfaces context loader drift over time.
+  console.info(
+    `[PromptAssembler] Dynamic injection: ${dynamicTokens} tokens (cap: ${dynamicCap}).`
+  );
+
   // Warn if dynamic injection exceeds soft cap — non-fatal.
   // Surfaces for context loader tuning.
   if (dynamicTokens > dynamicCap) {
