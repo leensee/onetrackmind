@@ -53,6 +53,21 @@ export class PrimaryCallError extends Error {
   }
 }
 
+// ── Error Message Sanitizer ──────────────────────────────────
+// Strips patterns that could carry sensitive data from SDK error
+// messages before they reach logs. Targets Bearer tokens, API key
+// patterns, and multiline payloads. First line only, capped at 200
+// characters. Pure function — exported for isolated unit testing.
+
+export function sanitizeErrorMessage(message: string): string {
+  const firstLine = message.split('\n')[0] ?? '';
+  const stripped = firstLine
+    .replace(/Bearer\s+[\w\-._~+/]+=*/gi, '[REDACTED_TOKEN]')
+    .replace(/sk-[\w\-]{10,}/gi, '[REDACTED_KEY]')
+    .replace(/authorization["']?\s*:\s*["']?[\w\s\-._~+/]+=*/gi, '[REDACTED_AUTH]');
+  return stripped.slice(0, 200);
+}
+
 // ── Delta Accumulator ─────────────────────────────────────────
 // Pure function — exported for isolated unit testing.
 // Joins all text deltas from the stream into a single string.
@@ -164,7 +179,7 @@ export async function primaryCall(
     const error = err as Error;
     console.error(
       `[PrimaryCall] error requestId=${requestId} sessionId=${sessionId} ` +
-      `cause=api_error message=${error.message}`
+      `cause=api_error message=${sanitizeErrorMessage(error.message)}`
     );
 
     throw new PrimaryCallError(
