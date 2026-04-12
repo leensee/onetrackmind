@@ -281,6 +281,9 @@ export function filterContextForEvent(
   }
 
   // Fallback — unknown event type: safety flags only, no consist context
+  console.warn(
+    `[ContextLoader] filterContextForEvent: unhandled eventType='${eventType}' — returning safety flags only.`
+  );
   return {
     activeFlags: activeFlags.filter(f => f.type === 'safety'),
     openItems:   [],
