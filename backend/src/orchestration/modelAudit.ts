@@ -17,6 +17,7 @@ import {
   ContextualData,
   PreflightResult,
 } from './types';
+import { sanitizeErrorMessage } from './primaryCall';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -178,6 +179,21 @@ export function parseAuditResponse(raw: string): ModelAuditResult {
 
   const result = obj['result'] as AuditResult;
 
+  // Enforce that non-pass results carry actionable issue and correction fields.
+  // A revise or flag with no correction leaves the orchestrator with nothing to act on.
+  if (result !== 'pass') {
+    if (typeof obj['issue'] !== 'string' || obj['issue'].length === 0) {
+      throw new Error(
+        `Audit result "${result}" must include a non-empty "issue" field`
+      );
+    }
+    if (typeof obj['correction'] !== 'string' || obj['correction'].length === 0) {
+      throw new Error(
+        `Audit result "${result}" must include a non-empty "correction" field`
+      );
+    }
+  }
+
   const auditResult: ModelAuditResult = { result };
 
   if (typeof obj['issue'] === 'string' && obj['issue'].length > 0) {
@@ -277,7 +293,7 @@ export async function runModelAudit(
     const error = err as Error;
     console.error(
       `[ModelAudit] error requestId=${requestId} sessionId=${sessionId} ` +
-      `cause=api_error message=${error.message}`
+      `cause=api_error message=${sanitizeErrorMessage(error.message)}`
     );
 
     throw new ModelAuditError(
