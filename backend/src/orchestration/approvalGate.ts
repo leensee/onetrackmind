@@ -227,10 +227,13 @@ export async function submitFeedback(
     }
 
     if (!githubSucceeded) {
-      // Both paths failed — log payload locally for manual recovery
+      // Both paths failed — log metadata only for tracing; full payload not logged
+      // to avoid operational content in error logs. Content is unrecoverable at this point.
       console.error(
-        `[ApprovalGate] all feedback channels failed — logging payload locally: ` +
-        JSON.stringify(payload)
+        `[ApprovalGate] all feedback channels failed — logging metadata for tracing: ` +
+        `sessionId=${payload.sessionId} timestamp=${payload.timestamp} ` +
+        `eventType=${payload.eventType} userAction=${payload.userAction} ` +
+        `attempts=${payload.attempts.length} manualRegens=${payload.manualRegens.length}`
       );
 
       throw new ApprovalGateError(
