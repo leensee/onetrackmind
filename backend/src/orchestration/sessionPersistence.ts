@@ -22,6 +22,7 @@ import {
 // ── Constants ─────────────────────────────────────────────────
 
 export const CURRENT_SCHEMA_VERSION = 1;
+export const MAX_RETENTION_DAYS     = 180;
 
 // ── SqliteClient — injected structural interface ──────────────
 // Three methods cover all SQLite operations this module needs.
@@ -96,12 +97,9 @@ export function serializePayload(
 ): SerializeResult {
   const required = PAYLOAD_SCHEMAS[entryType];
   const missing: string[] = [];
-  const wrongType: string[] = [];
 
   for (const field of required) {
-    if (!(field in data)) {
-      missing.push(field);
-    } else if (data[field] === undefined) {
+    if (!(field in data) || data[field] === undefined) {
       missing.push(field);
     }
   }
@@ -112,15 +110,6 @@ export function serializePayload(
       reason:  'missing_fields',
       fields:  missing,
       message: `${entryType}: missing required fields: ${missing.join(', ')}`,
-    };
-  }
-
-  if (wrongType.length > 0) {
-    return {
-      ok:      false,
-      reason:  'invalid_type',
-      fields:  wrongType,
-      message: `${entryType}: invalid field types: ${wrongType.join(', ')}`,
     };
   }
 
@@ -494,8 +483,17 @@ export async function purgeExpiredLogs(
   retentionDays: number,
   db:            SqliteClient
 ): Promise<PurgeResult> {
+  // Enforce 180-day maximum regardless of caller-supplied value.
+  // Baseline: 90-day default / 180-day max. Never trust caller to cap this.
+  const clampedDays = Math.min(retentionDays, MAX_RETENTION_DAYS);
+  if (clampedDays !== retentionDays) {
+    console.warn(
+      `[SessionPersistence] retentionDays=${retentionDays} exceeds MAX_RETENTION_DAYS=${MAX_RETENTION_DAYS} — clamped to ${clampedDays}`
+    );
+  }
+
   const cutoff = new Date(
-    Date.now() - retentionDays * 24 * 60 * 60 * 1000
+    Date.now() - clampedDays * 24 * 60 * 60 * 1000
   ).toISOString();
 
   // Count entries to be deleted (for PurgeResult)
