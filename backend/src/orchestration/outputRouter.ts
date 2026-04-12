@@ -1,4 +1,55 @@
 // ============================================================
+// OTM Orchestration — Crypto Utilities
+// AES-256-GCM encryption for FCM payload content.
+// Node.js built-in crypto only — no third-party dependencies.
+// Key must be a 64-char hex string (32 bytes).
+// IV is randomly generated per encryption — never reused.
+// ============================================================
+
+import { createCipheriv, randomBytes } from 'crypto';
+
+export interface EncryptedContent {
+  iv:         string;   // 12-byte random IV, hex-encoded
+  authTag:    string;   // 16-byte GCM auth tag, hex-encoded
+  ciphertext: string;   // encrypted content, hex-encoded
+}
+
+// Validates key is a 64-char hex string (32 bytes for AES-256).
+// Throws immediately on misconfiguration — never silently degrades.
+export function validateKeyHex(keyHex: string): void {
+  if (!/^[0-9a-fA-F]{64}$/.test(keyHex)) {
+    throw new Error(
+      'FCM_PAYLOAD_KEY must be a 64-character hex string (32 bytes for AES-256-GCM)'
+    );
+  }
+}
+
+export function encryptPayloadContent(
+  plaintext: string,
+  keyHex:    string
+): EncryptedContent {
+  validateKeyHex(keyHex);
+
+  const key = Buffer.from(keyHex, 'hex');
+  const iv  = randomBytes(12);   // 96-bit IV — GCM standard
+
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+
+  const ciphertext = Buffer.concat([
+    cipher.update(plaintext, 'utf8'),
+    cipher.final(),
+  ]);
+
+  const authTag = cipher.getAuthTag();
+
+  return {
+    iv:         iv.toString('hex'),
+    authTag:    authTag.toString('hex'),
+    ciphertext: ciphertext.toString('hex'),
+  };
+}
+
+// ============================================================
 // OTM Orchestration — Output Router
 // Takes audited, approved response text and routes it to the
 // correct channel with correct formatting applied.
@@ -26,9 +77,10 @@ export type PushSend  = (token: string, payload: Record<string, unknown>) => Pro
 export type AppWsSend = (payload: Record<string, unknown>) => Promise<void>;
 
 export interface RouterClients {
-  appWsSend?: AppWsSend;
-  smsSend?:   SmsSend;
-  pushSend?:  PushSend;
+  appWsSend?:    AppWsSend;
+  smsSend?:      SmsSend;
+  pushSend?:     PushSend;
+  fcmPayloadKey?: string;   // injected from FCM_PAYLOAD_KEY env var by orchestrator
 }
 
 // ── Output Router Error ───────────────────────────────────────
@@ -111,18 +163,41 @@ export function formatForSms(text: string): string[] {
 // Produces FCM-compatible payload.
 
 export function formatForPush(
-  text:      string,
-  sessionId: string
+  text:          string,
+  sessionId:     string,
+  fcmPayloadKey?: string
 ): Record<string, unknown> {
+  let encryptedContent: Record<string, unknown> | undefined;
+
+  if (fcmPayloadKey) {
+    try {
+      encryptedContent = encryptPayloadContent(text, fcmPayloadKey);
+    } catch (err) {
+      // Encryption failed — omit fullContent, notification still fires.
+      // Never transmit plaintext on key failure.
+      console.error(
+        `[OutputRouter] FCM payload encryption failed — fullContent omitted: ` +
+        `${(err as Error).message}`
+      );
+    }
+  } else {
+    // Key not configured — omit fullContent, notification still fires.
+    console.warn(
+      '[OutputRouter] FCM_PAYLOAD_KEY not configured — fullContent omitted from push payload.'
+    );
+  }
+
+  const data: Record<string, unknown> = { sessionId };
+  if (encryptedContent) {
+    data['encryptedContent'] = encryptedContent;
+  }
+
   return {
     notification: {
       title: 'OneTrackMind',
       body:  text.substring(0, PUSH_BODY_MAX_CHARS),
     },
-    data: {
-      sessionId,
-      fullContent: text,
-    },
+    data,
   };
 }
 
@@ -208,7 +283,8 @@ export async function routeToSms(
 export async function routeToPush(
   responseText: string,
   instruction:  RouteInstruction,
-  pushSend:     PushSend
+  pushSend:     PushSend,
+  fcmPayloadKey?: string
 ): Promise<RouteResult> {
   const { recipients, requestId } = instruction;
 
@@ -221,7 +297,7 @@ export async function routeToPush(
     );
   }
 
-  const payload  = formatForPush(responseText, instruction.sessionId);
+  const payload  = formatForPush(responseText, instruction.sessionId, fcmPayloadKey);
   const delivered: string[] = [];
   const failed: FailedRecipient[] = [];
 
@@ -296,7 +372,7 @@ export async function routeOutput(
           requestId, 'push', 'delivery_error'
         );
       }
-      return routeToPush(responseText, instruction, clients.pushSend);
+      return routeToPush(responseText, instruction, clients.pushSend, clients.fcmPayloadKey);
     }
 
     case 'log':
