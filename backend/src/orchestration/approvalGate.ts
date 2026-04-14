@@ -177,9 +177,45 @@ export function waitForDecision(
 
 export async function submitFeedback(
   payload:          FeedbackPayload,
-  token:            string,
+  token:            string | undefined,
   fallbackEmailFn?: () => Promise<void>
 ): Promise<void> {
+  // No token — skip GitHub entirely, route directly to fallback.
+  // Orchestrator passes env.githubFeedbackToken here; undefined is valid
+  // pre-Phase 4 and the gate owns this path — no orchestrator decision needed.
+  if (!token) {
+    console.warn(
+      `[ApprovalGate] GITHUB_FEEDBACK_TOKEN not configured — attempting email fallback ` +
+      `sessionId=${payload.sessionId}`
+    );
+    if (fallbackEmailFn) {
+      try {
+        await fallbackEmailFn();
+        console.info(
+          `[ApprovalGate] feedback submitted via email fallback (no token) ` +
+          `sessionId=${payload.sessionId}`
+        );
+        return;
+      } catch (emailErr) {
+        console.error(
+          `[ApprovalGate] email fallback failed (no token): ${(emailErr as Error).message}`
+        );
+      }
+    }
+    // No token and no fallback, or fallback failed — log metadata only, throw.
+    console.error(
+      `[ApprovalGate] no feedback channels available — logging metadata: ` +
+      `sessionId=${payload.sessionId} timestamp=${payload.timestamp} ` +
+      `eventType=${payload.eventType} userAction=${payload.userAction} ` +
+      `attempts=${payload.attempts.length} manualRegens=${payload.manualRegens.length}`
+    );
+    throw new ApprovalGateError(
+      'Feedback submission failed — GITHUB_FEEDBACK_TOKEN not configured and no fallback available',
+      payload.sessionId,
+      'feedback_error'
+    );
+  }
+
   const issueBody = {
     title:  `[audit-failure] ${payload.sessionId}`,
     body:   JSON.stringify(payload, null, 2),

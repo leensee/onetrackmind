@@ -291,6 +291,47 @@ async function runTests(): Promise<void> {
     assert(true, 'must not throw on success');
   });
 
+  // token: undefined — absent token paths
+
+  await test('submitFeedback: calls fallback directly when token is undefined', async () => {
+    // fetch must not be called — set it to throw so the test fails loudly if it is
+    (global as unknown as { fetch: unknown }).fetch = async () => {
+      throw new Error('fetch must not be called when token is undefined');
+    };
+    let fallbackCalled = false;
+    await submitFeedback(BASE_PAYLOAD, undefined, async () => {
+      fallbackCalled = true;
+    });
+    assert(fallbackCalled, 'fallback must be called when token is undefined');
+  });
+
+  await test('submitFeedback: throws feedback_error when token is undefined and no fallback', async () => {
+    (global as unknown as { fetch: unknown }).fetch = async () => {
+      throw new Error('fetch must not be called when token is undefined');
+    };
+    const err = await assertRejects(
+      () => submitFeedback(BASE_PAYLOAD, undefined),
+      'ApprovalGateError',
+      'must throw ApprovalGateError when no token and no fallback'
+    );
+    assert(err.cause === 'feedback_error', `cause must be feedback_error, got ${err.cause}`);
+    assert(err.requestId === SESSION_ID, 'must carry sessionId as requestId');
+  });
+
+  await test('submitFeedback: throws feedback_error when token is undefined and fallback also fails', async () => {
+    (global as unknown as { fetch: unknown }).fetch = async () => {
+      throw new Error('fetch must not be called when token is undefined');
+    };
+    const err = await assertRejects(
+      () => submitFeedback(BASE_PAYLOAD, undefined, async () => {
+        throw new Error('email also failed');
+      }),
+      'ApprovalGateError',
+      'must throw when token absent and fallback fails'
+    );
+    assert(err.cause === 'feedback_error', `cause must be feedback_error, got ${err.cause}`);
+  });
+
   // ── runApprovalGate ───────────────────────────────────────
   await test('runApprovalGate: sends message and returns decision', async () => {
     const emitter = new EventEmitter();
