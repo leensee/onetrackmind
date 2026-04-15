@@ -369,3 +369,42 @@ export type SpecLookupResult =
   | { status: 'not_found'; reason: 'unknown_machine' }
   | { status: 'not_found'; reason: 'ambiguous'; candidates: MachineIdentity[] }
   | { status: 'error';     cause: 'db_error'; message: string };
+
+// ── Diagnostic Logger ─────────────────────────────────────────
+
+// Three severity levels — determined by the tool generating the event
+// via exported pure determineSeverity() functions. Never set by the
+// orchestrator directly.
+export type DiagnosticSeverity = 'info' | 'warning' | 'critical';
+
+// One diagnostic_log row in caller-facing shape.
+// isSynced: false until Phase 7 sync layer confirms Supabase write.
+// Local purge only deletes rows where isSynced === true.
+export interface DiagnosticEntry {
+  entryId:      string;           // UUID
+  sessionId:    string;
+  userId:       string;
+  category:     string;           // plain string — extensible without migration
+  severity:     DiagnosticSeverity;
+  machineId:    string | null;    // null for system-level events
+  message:      string;
+  metadataJson: string | null;    // JSON-serialized metadata, null if none supplied
+  timestamp:    string;           // ISO 8601
+  isSynced:     boolean;
+}
+
+export interface DiagnosticLogInput {
+  userId:    string;
+  sessionId: string;
+  requestId: string;
+  category:  string;
+  severity:  DiagnosticSeverity;
+  machineId: string | null;
+  message:   string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DiagnosticPurgeResult {
+  entriesDeleted: number;
+  purgedBefore:   string;   // ISO 8601 cutoff used
+}
