@@ -5,10 +5,10 @@
 // DB client is injected — never constructed here.
 // All queries parameterized — no string interpolation.
 //
-// Three result states, all requiring explicit caller action:
-//   unknown_machine → identifier matched nothing
-//   ambiguous       → multiple machines matched; surface all to user
-//   found           → entries + unknownKeys; both always surfaced
+// Four result states, all requiring explicit caller action:
+//   found        → entries + unknownKeys; both always surfaced to user
+//   not_found    → unknown_machine (matched nothing) or ambiguous (multiple matches)
+//   error        → db_error; returned, never thrown; orchestrator routes on it
 // ============================================================
 
 import {
@@ -20,39 +20,21 @@ import {
 } from '../types';
 
 // ── Narrow DB Interface ───────────────────────────────────────
-// Only exposes what this module needs — easier to stub in tests.
 
 export interface SpecLookupDbClient {
   all<T>(sql: string, params: unknown[]): Promise<T[]>;
 }
 
-// ── Error ─────────────────────────────────────────────────────
-
-export class SpecLookupError extends Error {
-  public readonly sessionId:  string;
-  public readonly requestId:  string;
-  public readonly cause:      'db_error';
-
-  constructor(message: string, sessionId: string, requestId: string) {
-    super(message);
-    this.name      = 'SpecLookupError';
-    this.sessionId = sessionId;
-    this.requestId = requestId;
-    this.cause     = 'db_error';
-  }
-}
-
 // ── Raw DB Row Types ──────────────────────────────────────────
-// Exported so tests can construct inputs for pure functions
-// without casts.
+// Exported so tests can construct inputs without casts.
 
 export interface RawRosterRow {
-  machine_id:   string;
-  position:     number | null;
-  full_name:    string;
-  machine_type: 'consist' | 'support';
+  machine_id:    string;
+  position:      number | null;
+  full_name:     string;
+  machine_type:  'consist' | 'support';
   serial_number: string | null;
-  common_names: string;   // JSON text: string[]
+  common_names:  string;   // JSON text: string[]
 }
 
 export interface RawSpecRow {
@@ -64,7 +46,7 @@ export interface RawSpecRow {
   is_gap:       number;   // SQLite integer: 0 | 1
 }
 
-// ── Roster Row → MachineRosterEntry ───────────────────────────
+// ── Roster Row → MachineRosterEntry ──────────────────────────
 // Pure mapping — exported for testing.
 
 export function mapRosterRow(row: RawRosterRow): MachineRosterEntry {
@@ -75,9 +57,8 @@ export function mapRosterRow(row: RawRosterRow): MachineRosterEntry {
       commonNames = parsed.filter((n): n is string => typeof n === 'string');
     }
   } catch {
-    // Malformed JSON in DB — treat as no common names; log at call site
+    // Malformed JSON — treat as no common names; log at call site
   }
-
   return {
     machineId:    row.machine_id,
     position:     row.position,
@@ -92,23 +73,16 @@ export function mapRosterRow(row: RawRosterRow): MachineRosterEntry {
 // Pure function — no DB access. Exported for isolated testing.
 //
 // Resolution order (short-circuits on unambiguous match):
-//   1. Position number — strip prefix ('pos ', 'position ', '#'),
-//      parse as integer, match on position field.
-//      Position is inherently unique — always unambiguous.
+//   1. Position number — strip prefix ('pos ', 'position ', '#'), parse as int.
 //   2. Serial number — exact case-insensitive match.
-//      Serials are unique — always unambiguous.
 //   3. Full name — exact case-insensitive match.
-//      Names are unique — always unambiguous.
-//   4. Common name exact — case-insensitive equality against
-//      every element of every machine's commonNames[].
-//      Collects ALL matches. 1 → found. >1 → ambiguous. 0 → step 5.
-//   5. Common name contains — normalized query contained in a
-//      common name, or common name contained in query.
-//      Only runs if step 4 produced zero matches.
-//      Same collect-all logic: 1 → found. >1 → ambiguous. 0 → not_found.
+//   4. Common name exact — equality against every element. Collect ALL.
+//      1 → found. >1 → ambiguous. 0 → step 5.
+//   5. Common name contains — query in name or name in query.
+//      Only if step 4 found nothing. Same collect-all logic.
 //
-// 'ambiguous' is a first-class result — the caller surfaces all
-// candidates to the user for disambiguation, never guesses.
+// 'ambiguous' is first-class — caller surfaces all candidates to
+// the user for disambiguation, never guesses.
 
 export type ResolutionResult =
   | { status: 'found';     machine: MachineRosterEntry }
@@ -116,10 +90,10 @@ export type ResolutionResult =
   | { status: 'ambiguous'; candidates: MachineRosterEntry[] };
 
 export function resolveMachineIdentifier(
-  query:   string,
-  roster:  MachineRosterEntry[]
+  query:  string,
+  roster: MachineRosterEntry[]
 ): ResolutionResult {
-  const q = query.trim();
+  const q      = query.trim();
   const qLower = q.toLowerCase();
 
   // Step 1: Position number
@@ -130,15 +104,13 @@ export function resolveMachineIdentifier(
     .trim();
   if (/^\d+$/.test(posStripped)) {
     const posNum = parseInt(posStripped, 10);
-    const match = roster.find(m => m.position === posNum);
+    const match  = roster.find(m => m.position === posNum);
     if (match) return { status: 'found', machine: match };
-    // Integer that doesn't match any position — fall through
   }
 
   // Step 2: Serial number (exact, case-insensitive)
   const bySerial = roster.find(
-    m => m.serialNumber !== undefined &&
-         m.serialNumber.toLowerCase() === qLower
+    m => m.serialNumber !== undefined && m.serialNumber.toLowerCase() === qLower
   );
   if (bySerial) return { status: 'found', machine: bySerial };
 
@@ -146,22 +118,22 @@ export function resolveMachineIdentifier(
   const byFullName = roster.find(m => m.fullName.toLowerCase() === qLower);
   if (byFullName) return { status: 'found', machine: byFullName };
 
-  // Step 4: Common name exact (case-insensitive equality)
+  // Step 4: Common name exact
   const exactMatches = roster.filter(m =>
     m.commonNames.some(cn => cn.toLowerCase() === qLower)
   );
-  if (exactMatches.length === 1) return { status: 'found', machine: exactMatches[0]! };
-  if (exactMatches.length > 1)  return { status: 'ambiguous', candidates: exactMatches };
+  if (exactMatches.length === 1) return { status: 'found',     machine:    exactMatches[0]! };
+  if (exactMatches.length  > 1)  return { status: 'ambiguous', candidates: exactMatches };
 
-  // Step 5: Common name contains (only if step 4 found nothing)
+  // Step 5: Common name contains
   const containsMatches = roster.filter(m =>
     m.commonNames.some(cn => {
       const cnLower = cn.toLowerCase();
       return cnLower.includes(qLower) || qLower.includes(cnLower);
     })
   );
-  if (containsMatches.length === 1) return { status: 'found', machine: containsMatches[0]! };
-  if (containsMatches.length > 1)  return { status: 'ambiguous', candidates: containsMatches };
+  if (containsMatches.length === 1) return { status: 'found',     machine:    containsMatches[0]! };
+  if (containsMatches.length  > 1)  return { status: 'ambiguous', candidates: containsMatches };
 
   return { status: 'not_found' };
 }
@@ -173,8 +145,8 @@ export function mapSpecRow(row: RawSpecRow): SpecEntry {
   return {
     key:         row.spec_key,
     value:       row.spec_value,
-    unit:        row.unit        ?? undefined,
-    source:      row.source      ?? undefined,
+    unit:        row.unit         ?? undefined,
+    source:      row.source       ?? undefined,
     confirmedAt: row.confirmed_at ?? undefined,
     isGap:       row.is_gap === 1,
   };
@@ -183,15 +155,14 @@ export function mapSpecRow(row: RawSpecRow): SpecEntry {
 // ── Build Result ──────────────────────────────────────────────
 // Pure function — no DB access. Exported for testing.
 // Applies key filtering and computes unknownKeys.
-// unknownKeys: requested keys with zero matching rows in the DB —
-// distinct from isGap (key exists, value unconfirmed).
+// unknownKeys: requested keys with zero rows — distinct from isGap.
 // Both unknownKeys and isGap entries must always reach the caller.
 
 export function buildSpecLookupResult(
-  machine:       MachineRosterEntry,
-  rows:          RawSpecRow[],
+  machine:        MachineRosterEntry,
+  rows:           RawSpecRow[],
   requestedKeys?: string[]
-): Extract<SpecLookupResult, { found: true }> {
+): Extract<SpecLookupResult, { status: 'found' }> {
   const identity: MachineIdentity = {
     machineId:   machine.machineId,
     position:    machine.position,
@@ -200,69 +171,37 @@ export function buildSpecLookupResult(
   };
 
   if (!requestedKeys || requestedKeys.length === 0) {
-    // No key filter — return all entries
-    return {
-      found:       true,
-      machine:     identity,
-      entries:     rows.map(mapSpecRow),
-      unknownKeys: [],
-    };
+    return { status: 'found', machine: identity, entries: rows.map(mapSpecRow), unknownKeys: [] };
   }
 
-  // Filter entries to requested keys only
   const requestedLower = requestedKeys.map(k => k.toLowerCase());
-  const matched = rows.filter(r =>
-    requestedLower.includes(r.spec_key.toLowerCase())
-  );
+  const matched        = rows.filter(r => requestedLower.includes(r.spec_key.toLowerCase()));
+  const returnedKeys   = new Set(matched.map(r => r.spec_key.toLowerCase()));
+  const unknownKeys    = requestedKeys.filter(k => !returnedKeys.has(k.toLowerCase()));
 
-  // unknownKeys: requested keys with zero rows in the DB at all
-  const returnedKeys = new Set(matched.map(r => r.spec_key.toLowerCase()));
-  const unknownKeys  = requestedKeys.filter(
-    k => !returnedKeys.has(k.toLowerCase())
-  );
-
-  return {
-    found:       true,
-    machine:     identity,
-    entries:     matched.map(mapSpecRow),
-    unknownKeys,
-  };
+  return { status: 'found', machine: identity, entries: matched.map(mapSpecRow), unknownKeys };
 }
 
 // ── DB Queries ────────────────────────────────────────────────
 
-// Fetches full roster — consist positions AND support equipment.
-// machine_type column in fleet_master distinguishes them.
-// common_names stored as JSON text array.
-
-export async function fetchRoster(
-  db: SpecLookupDbClient
-): Promise<MachineRosterEntry[]> {
+export async function fetchRoster(db: SpecLookupDbClient): Promise<MachineRosterEntry[]> {
   const rows = await db.all<RawRosterRow>(
-    `SELECT machine_id, position, full_name, machine_type,
-            serial_number, common_names
+    `SELECT machine_id, position, full_name, machine_type, serial_number, common_names
      FROM fleet_master
      ORDER BY machine_type ASC, position ASC NULLS LAST`,
     []
   );
-
   return rows.map((row, idx) => {
     try {
       return mapRosterRow(row);
     } catch {
-      // Log parse failures per row; non-fatal — skip malformed rows
       console.warn(
-        `[SpecLookup] skipping malformed roster row index=${idx} ` +
-        `machine_id=${row.machine_id}`
+        `[SpecLookup] skipping malformed roster row index=${idx} machine_id=${row.machine_id}`
       );
       return null;
     }
   }).filter((m): m is MachineRosterEntry => m !== null);
 }
-
-// Fetches all spec rows for a given machine_id.
-// Key filtering is applied in the pure buildSpecLookupResult —
-// keeping filter logic out of the DB layer keeps it testable.
 
 export async function fetchSpecRows(
   machineId: string,
@@ -278,6 +217,8 @@ export async function fetchSpecRows(
 }
 
 // ── Main Entry ────────────────────────────────────────────────
+// Never throws on operational failures — all error states returned.
+// Throws only on precondition violations (null client, etc.).
 
 export async function specLookup(
   input: SpecLookupInput,
@@ -289,21 +230,22 @@ export async function specLookup(
   try {
     roster = await fetchRoster(db);
   } catch (err) {
-    throw new SpecLookupError(
-      `Roster fetch failed: ${(err as Error).message}`,
-      sessionId, requestId
-    );
+    return {
+      status:  'error',
+      cause:   'db_error',
+      message: `Roster fetch failed [sessionId=${sessionId} requestId=${requestId}]: ${(err as Error).message}`,
+    };
   }
 
   const resolution = resolveMachineIdentifier(identifier, roster);
 
   if (resolution.status === 'not_found') {
-    return { found: false, reason: 'unknown_machine' };
+    return { status: 'not_found', reason: 'unknown_machine' };
   }
 
   if (resolution.status === 'ambiguous') {
     return {
-      found:      false,
+      status:     'not_found',
       reason:     'ambiguous',
       candidates: resolution.candidates.map(m => ({
         machineId:   m.machineId,
@@ -320,10 +262,11 @@ export async function specLookup(
   try {
     specRows = await fetchSpecRows(machine.machineId, db);
   } catch (err) {
-    throw new SpecLookupError(
-      `Spec fetch failed for machineId=${machine.machineId}: ${(err as Error).message}`,
-      sessionId, requestId
-    );
+    return {
+      status:  'error',
+      cause:   'db_error',
+      message: `Spec fetch failed [machineId=${machine.machineId} sessionId=${sessionId}]: ${(err as Error).message}`,
+    };
   }
 
   return buildSpecLookupResult(machine, specRows, keys);

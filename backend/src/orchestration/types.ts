@@ -356,13 +356,16 @@ export interface SpecLookupInput {
   requestId:  string;
 }
 
-// Discriminated result — all three states require explicit caller action.
-// found: false / unknown_machine → identifier matched nothing in roster
-// found: false / ambiguous       → multiple machines matched; surface all
-//                                  candidates to user for disambiguation
-// found: true                    → entries may contain isGap=true rows and/or
-//                                  unknownKeys; both must be surfaced to user
+// Discriminated result — all four states require explicit caller action.
+// status: 'not_found' / unknown_machine → identifier matched nothing in roster
+// status: 'not_found' / ambiguous       → multiple machines matched; surface all
+//                                         candidates to user for disambiguation
+// status: 'found'                        → entries may contain isGap=true rows and/or
+//                                         unknownKeys; both must be surfaced to user
+// status: 'error'                        → DB failure; message carries sanitized detail
+//                                         for orchestrator logging; never throws
 export type SpecLookupResult =
-  | { found: false; reason: 'unknown_machine' }
-  | { found: false; reason: 'ambiguous'; candidates: MachineIdentity[] }
-  | { found: true;  machine: MachineIdentity; entries: SpecEntry[]; unknownKeys: string[] };
+  | { status: 'found';     machine: MachineIdentity; entries: SpecEntry[]; unknownKeys: string[] }
+  | { status: 'not_found'; reason: 'unknown_machine' }
+  | { status: 'not_found'; reason: 'ambiguous'; candidates: MachineIdentity[] }
+  | { status: 'error';     cause: 'db_error'; message: string };
