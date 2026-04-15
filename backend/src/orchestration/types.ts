@@ -408,3 +408,55 @@ export interface DiagnosticPurgeResult {
   entriesDeleted: number;
   purgedBefore:   string;   // ISO 8601 cutoff used
 }
+
+// ── Todo Tool ─────────────────────────────────────────────────
+
+export type TodoCategory =
+  | 'safety'
+  | 'equipment_specific'
+  | 'parts_inventory'
+  | 'compliance_admin'
+  | 'contact';
+
+export type TodoTimeSensitivity = 'urgent' | 'standard' | 'low';
+export type TodoStatus         = 'open' | 'done' | 'dismissed';
+
+// Validated draft — returned by buildTodoDraft().
+// Orchestrator routes this through the approval gate before calling writeTodo().
+export interface TodoDraft {
+  userId:             string;
+  sessionId:          string;
+  requestId:          string;
+  description:        string;
+  category:           TodoCategory;
+  timeSensitivity:    TodoTimeSensitivity;
+  dueDate?:           string;           // ISO 8601
+  equipmentId:        string | null;    // resolved by orchestrator via specLookup
+  equipmentNote?:     string;           // free-text when equipmentId is null
+  linkedContactId:    string | null;    // resolved by orchestrator
+  linkedContactNote?: string;           // free-text when linkedContactId is null
+  metadataJson:       string | null;
+}
+
+export interface TodoCreateInput {
+  userId:             string;
+  sessionId:          string;
+  requestId:          string;
+  description:        string;
+  category:           TodoCategory;
+  timeSensitivity:    TodoTimeSensitivity;
+  dueDate?:           string;
+  equipmentId:        string | null;
+  equipmentNote?:     string;
+  linkedContactId:    string | null;
+  linkedContactNote?: string;
+  metadata?:          Record<string, unknown>;
+}
+
+export interface TodoUpdateInput {
+  todoId:    string;
+  status:    'done' | 'dismissed';
+  userId:    string;
+  sessionId: string;
+  requestId: string;
+}

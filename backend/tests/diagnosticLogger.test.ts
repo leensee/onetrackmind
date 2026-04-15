@@ -115,7 +115,7 @@ async function runTests(): Promise<void> {
     assert((params as unknown[]).includes('equipment_fault'), 'category in params');
     assert((params as unknown[]).includes('warning'),         'severity in params');
     assert((params as unknown[]).includes('machine-001'),     'machineId in params');
-    assert(sql.includes('is_synced') && /,\s*0\)/.test(sql), 'is_synced hardcoded as 0 in SQL');
+    assert((params as unknown[])[params.length - 1] === 0,   'is_synced param is 0');
   });
   await test('invalid input → DiagnosticLogError(invalid_input), no DB call', async () => {
     let dbCalled = false;

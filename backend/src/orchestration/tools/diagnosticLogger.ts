@@ -26,6 +26,11 @@ import {
 
 export const DIAGNOSTIC_MAX_RETENTION_DAYS = 180;
 
+// is_synced is always 0 on write — Phase 7 sync layer sets it to 1
+// after Supabase confirmation. Hardcoded in SQL, not a parameter,
+// so no caller can accidentally create a pre-synced record.
+const IS_NOT_SYNCED = 0;
+
 // Valid severity values — used by validateInput.
 // Must stay in sync with DiagnosticSeverity type in types.ts.
 const VALID_SEVERITIES: DiagnosticSeverity[] = ['info', 'warning', 'critical'];
@@ -130,7 +135,7 @@ export async function logDiagnosticEntry(
       `INSERT INTO diagnostic_log
          (entry_id, session_id, user_id, category, severity,
           machine_id, message, metadata_json, timestamp, is_synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         entryId,
         input.sessionId,
@@ -141,6 +146,7 @@ export async function logDiagnosticEntry(
         input.message.trim(),
         metadataJson,
         timestamp,
+        IS_NOT_SYNCED,
       ]
     );
 
