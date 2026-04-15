@@ -13,6 +13,7 @@ import {
   SessionState,
   SessionLogEntry,
   SessionLogEntryType,
+  SqliteClient,
   ActiveFlag,
   OpenItem,
   Message,
@@ -23,16 +24,6 @@ import {
 
 export const CURRENT_SCHEMA_VERSION = 1;
 export const MAX_RETENTION_DAYS     = 180;
-
-// ── SqliteClient — injected structural interface ──────────────
-// Three methods cover all SQLite operations this module needs.
-// Structural — not tied to a specific SQLite library.
-
-export interface SqliteClient {
-  run(sql: string, params: unknown[]): Promise<void>;
-  get<T>(sql: string, params: unknown[]): Promise<T | undefined>;
-  all<T>(sql: string, params: unknown[]): Promise<T[]>;
-}
 
 // ── SerializeResult — discriminated result ────────────────────
 // Never throws — returns typed result. Caller decides path.

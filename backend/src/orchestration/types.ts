@@ -302,3 +302,67 @@ export interface SessionLogEntry {
   schemaVersion: number;   // payload schema version — used by replay for migration
   timestamp:     string;   // ISO 8601
 }
+
+// ── SQLite Client — shared structural interface ───────────────
+// Moved from sessionPersistence.ts — used by tool layer and
+// persistence layer. Structural — not tied to a specific library.
+
+export interface SqliteClient {
+  run(sql: string, params: unknown[]): Promise<void>;
+  get<T>(sql: string, params: unknown[]): Promise<T | undefined>;
+  all<T>(sql: string, params: unknown[]): Promise<T[]>;
+}
+
+// ── Machine / Fleet ───────────────────────────────────────────
+
+export type MachineType = 'consist' | 'support';
+
+// Resolved machine identity returned to the caller.
+// position is null for support equipment.
+export interface MachineIdentity {
+  machineId:   string;
+  position:    number | null;
+  fullName:    string;
+  machineType: MachineType;
+}
+
+// Full roster row used internally for identifier resolution.
+// commonNames is data-driven from the DB — never hardcoded.
+export interface MachineRosterEntry extends MachineIdentity {
+  serialNumber: string | undefined;
+  commonNames:  string[];
+}
+
+// One EAV spec row in caller-facing shape.
+// value is null only when isGap === true (first-class field).
+// isGap: true  → spec known but value not yet confirmed;
+//                caller must surface this explicitly to the user.
+// isGap: false → value is confirmed and present.
+export interface SpecEntry {
+  key:         string;
+  value:       string | null;
+  unit:        string | undefined;
+  source:      string | undefined;
+  confirmedAt: string | undefined;
+  isGap:       boolean;
+}
+
+// ── Spec Lookup ───────────────────────────────────────────────
+
+export interface SpecLookupInput {
+  identifier: string;    // position number, serial, full name, or common name
+  keys?:      string[];  // specific spec keys; absent = return all entries
+  sessionId:  string;
+  requestId:  string;
+}
+
+// Discriminated result — all three states require explicit caller action.
+// found: false / unknown_machine → identifier matched nothing in roster
+// found: false / ambiguous       → multiple machines matched; surface all
+//                                  candidates to user for disambiguation
+// found: true                    → entries may contain isGap=true rows and/or
+//                                  unknownKeys; both must be surfaced to user
+export type SpecLookupResult =
+  | { found: false; reason: 'unknown_machine' }
+  | { found: false; reason: 'ambiguous'; candidates: MachineIdentity[] }
+  | { found: true;  machine: MachineIdentity; entries: SpecEntry[]; unknownKeys: string[] };
