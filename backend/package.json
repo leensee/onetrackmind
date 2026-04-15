@@ -7,7 +7,7 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "ts-node --project tsconfig.test.json tests/promptAssembler.test.ts && ts-node --project tsconfig.test.json tests/eventClassifier.test.ts && ts-node --project tsconfig.test.json tests/contextLoader.test.ts && ts-node --project tsconfig.test.json tests/primaryCall.test.ts && ts-node --project tsconfig.test.json tests/preflight.test.ts && ts-node --project tsconfig.test.json tests/modelAudit.test.ts && ts-node --project tsconfig.test.json tests/approvalGate.test.ts && ts-node --project tsconfig.test.json tests/outputRouter.test.ts && ts-node --project tsconfig.test.json tests/sessionPersistence.test.ts && ts-node --project tsconfig.test.json tests/env.test.ts && ts-node --project tsconfig.test.json tests/specLookup.test.ts && ts-node --project tsconfig.test.json tests/diagnosticLogger.test.ts && ts-node --project tsconfig.test.json tests/todoTool.test.ts",
+    "test": "ts-node --project tsconfig.test.json tests/promptAssembler.test.ts && ts-node --project tsconfig.test.json tests/eventClassifier.test.ts && ts-node --project tsconfig.test.json tests/contextLoader.test.ts && ts-node --project tsconfig.test.json tests/primaryCall.test.ts && ts-node --project tsconfig.test.json tests/preflight.test.ts && ts-node --project tsconfig.test.json tests/modelAudit.test.ts && ts-node --project tsconfig.test.json tests/approvalGate.test.ts && ts-node --project tsconfig.test.json tests/outputRouter.test.ts && ts-node --project tsconfig.test.json tests/sessionPersistence.test.ts && ts-node --project tsconfig.test.json tests/env.test.ts && ts-node --project tsconfig.test.json tests/specLookup.test.ts && ts-node --project tsconfig.test.json tests/diagnosticLogger.test.ts && ts-node --project tsconfig.test.json tests/todoTool.test.ts && ts-node --project tsconfig.test.json tests/commsDrafter.test.ts",
     "test:assembler":    "ts-node --project tsconfig.test.json tests/promptAssembler.test.ts",
     "test:classifier":   "ts-node --project tsconfig.test.json tests/eventClassifier.test.ts",
     "test:context":      "ts-node --project tsconfig.test.json tests/contextLoader.test.ts",
@@ -20,7 +20,8 @@
     "test:env":          "ts-node --project tsconfig.test.json tests/env.test.ts",
     "test:spec":         "ts-node --project tsconfig.test.json tests/specLookup.test.ts",
     "test:diagnostic":   "ts-node --project tsconfig.test.json tests/diagnosticLogger.test.ts",
-    "test:todo":         "ts-node --project tsconfig.test.json tests/todoTool.test.ts"
+    "test:todo":         "ts-node --project tsconfig.test.json tests/todoTool.test.ts",
+    "test:comms":        "ts-node --project tsconfig.test.json tests/commsDrafter.test.ts"
   },
   "keywords": [],
   "author": "",

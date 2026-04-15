@@ -460,3 +460,46 @@ export interface TodoUpdateInput {
   sessionId: string;
   requestId: string;
 }
+
+// ── Comms Drafter ─────────────────────────────────────────────
+
+// toneLevel: integer 0–10.
+// Reference anchors (not enforced as enum values):
+//   0 = neutral, 5 = peer, 10 = formal
+// Contact's stored toneLevel is the default.
+// User instruction overrides it (e.g. "a little more casual" → decrement 1–2).
+// Orchestrator supplies the value; tool validates range and integer constraint.
+
+export interface SmsDraft {
+  channel:    'sms';
+  recipients: string[];   // resolved phone numbers
+  body:       string;     // plain text; output router formats at send time
+  toneLevel:  number;     // 0–10
+}
+
+export interface EmailDraft {
+  channel:    'email';
+  recipients: string[];   // resolved email addresses
+  subject:    string;
+  body:       string;     // plain text or simple HTML; no provider extensions
+  toneLevel:  number;     // 0–10
+  replyTo?:   string;
+}
+
+export type CommsDraft = SmsDraft | EmailDraft;
+
+export interface CommsDraftInput {
+  channel:    'sms' | 'email';
+  recipients: string[];
+  body:       string;
+  toneLevel:  number;
+  subject?:   string;   // required for email, ignored for sms
+  replyTo?:   string;   // email only
+  sessionId:  string;
+  requestId:  string;
+}
+
+// Discriminated result — same pattern as buildTodoDraft.
+export type CommsDraftResult =
+  | { ok: true;  draft: CommsDraft }
+  | { ok: false; error: string };
