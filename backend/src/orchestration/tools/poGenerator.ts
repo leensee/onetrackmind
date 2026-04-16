@@ -70,9 +70,6 @@ export function validatePoInput(input: PoGenerateInput): string | null {
       return `lineItems[${i}].unitPrice must be a positive number`;
     }
   }
-  if (!Number.isInteger(input.sequenceNumber) || input.sequenceNumber < 1) {
-    return 'sequenceNumber must be a positive integer';
-  }
   if (input.issuedDate !== undefined) {
     const d = new Date(input.issuedDate);
     if (isNaN(d.getTime())) return `issuedDate must be a valid ISO 8601 date; got: ${input.issuedDate}`;
@@ -147,12 +144,18 @@ export function buildPoDocument(order: PurchaseOrder): PoDocument {
 }
 
 // Main pure entry — builds both order and document.
-export function buildPoGenerateResult(input: PoGenerateInput): PoGenerateResult {
+export function buildPoGenerateResult(
+  input:          PoGenerateInput,
+  sequenceNumber: number
+): PoGenerateResult {
+  if (!Number.isInteger(sequenceNumber) || sequenceNumber < 1) {
+    return { ok: false, error: 'sequenceNumber must be a positive integer' };
+  }
   const validationError = validatePoInput(input);
   if (validationError) return { ok: false, error: validationError };
 
   const date     = input.issuedDate ?? new Date().toISOString().split('T')[0]!;
-  const poNumber = generatePoNumber(date, input.sequenceNumber);
+  const poNumber = generatePoNumber(date, sequenceNumber);
   const subtotal = computeSubtotal(input.lineItems);
   const order    = buildPurchaseOrder(input, poNumber, subtotal, date);
   const document = buildPoDocument(order);

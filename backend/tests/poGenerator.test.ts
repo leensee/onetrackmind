@@ -18,7 +18,7 @@ const ITEM_B: PoLineItem = { description: 'Hydraulic fluid 1qt', quantity: 1, un
 function makeInput(o: Partial<PoGenerateInput> = {}): PoGenerateInput {
   return {
     userId: 'user-001', sessionId: 's1', requestId: 'r1',
-    sequenceNumber: 1, vendorName: 'NAPA Auto Parts',
+    vendorName: 'NAPA Auto Parts',
     lineItems: [ITEM_A, ITEM_B],
     equipmentId: 'machine-001', equipmentPosition: 1,
     issuedDate: '2026-04-15', ...o,
@@ -60,8 +60,10 @@ async function runTests(): Promise<void> {
     assert(r !== null && r.includes('unitPrice'), 'error');
   });
   await test('zero sequenceNumber → error', () => {
-    const r = validatePoInput(makeInput({ sequenceNumber: 0 }));
-    assert(r !== null && r.includes('sequenceNumber'), 'error');
+    const r = validatePoInput(makeInput({ vendorName: 'NAPA' }));
+    // sequenceNumber validation moved to buildPoGenerateResult
+    const r2 = buildPoGenerateResult(makeInput(), 0);
+    assert(r2.ok === false && !r2.ok && r2.error.includes('sequenceNumber'), 'error');
   });
   await test('invalid issuedDate → error', () => {
     const r = validatePoInput(makeInput({ issuedDate: 'not-a-date' }));
@@ -104,7 +106,7 @@ async function runTests(): Promise<void> {
   console.log('\n[poGenerator] buildPoGenerateResult');
 
   await test('valid input → ok:true with order and document', () => {
-    const r = buildPoGenerateResult(makeInput());
+    const r = buildPoGenerateResult(makeInput(), 1);
     assert(r.ok === true, 'ok');
     if (r.ok) {
       assert(r.order.poNumber === 'PO-20260415-0001', 'poNumber');
@@ -114,13 +116,13 @@ async function runTests(): Promise<void> {
     }
   });
   await test('invalid input → ok:false', () => {
-    const r = buildPoGenerateResult(makeInput({ vendorName: '' }));
+    const r = buildPoGenerateResult(makeInput({ vendorName: '' }), 1);
     assert(r.ok === false, 'ok false');
     if (!r.ok) assert(r.error.includes('vendorName'), 'error message');
   });
   await test('issuedDate defaults to today when absent', () => {
     const { issuedDate: _, ...rest } = makeInput();
-    const r = buildPoGenerateResult(rest);
+    const r = buildPoGenerateResult(rest, 1);
     assert(r.ok === true, 'ok');
     if (r.ok) {
       const today = new Date().toISOString().split('T')[0]!;
@@ -128,12 +130,12 @@ async function runTests(): Promise<void> {
     }
   });
   await test('notes trimmed when present', () => {
-    const r = buildPoGenerateResult(makeInput({ notes: '  rush order  ' }));
+    const r = buildPoGenerateResult(makeInput({ notes: '  rush order  ' }), 1);
     assert(r.ok === true, 'ok');
     if (r.ok) assert(r.order.notes === 'rush order', 'notes trimmed');
   });
   await test('null equipment fields preserved', () => {
-    const r = buildPoGenerateResult(makeInput({ equipmentId: null, equipmentPosition: null }));
+    const r = buildPoGenerateResult(makeInput({ equipmentId: null, equipmentPosition: null }), 1);
     assert(r.ok === true, 'ok');
     if (r.ok) {
       assert(r.order.equipmentId === null,       'equipmentId null');
@@ -141,7 +143,7 @@ async function runTests(): Promise<void> {
     }
   });
   await test('lineItemsFormatted includes part number when present', () => {
-    const r = buildPoGenerateResult(makeInput());
+    const r = buildPoGenerateResult(makeInput(), 1);
     assert(r.ok === true, 'ok');
     if (r.ok) assert(r.document.lineItemsFormatted[0]!.includes('HF6553'), 'partNumber in format');
   });
@@ -150,7 +152,7 @@ async function runTests(): Promise<void> {
   console.log('\n[poGenerator] writePurchaseOrder');
 
   function makeOrder() {
-    const r = buildPoGenerateResult(makeInput());
+    const r = buildPoGenerateResult(makeInput(), 1);
     if (!r.ok) throw new Error('fixture failed');
     return r.order;
   }

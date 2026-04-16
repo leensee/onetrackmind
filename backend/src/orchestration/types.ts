@@ -591,7 +591,6 @@ export interface PoGenerateInput {
   userId:            string;
   sessionId:         string;
   requestId:         string;
-  sequenceNumber:    number;     // caller supplies; tool formats into poNumber
   vendorName:        string;
   lineItems:         PoLineItem[];
   equipmentId:       string | null;
@@ -603,3 +602,46 @@ export interface PoGenerateInput {
 export type PoGenerateResult =
   | { ok: true;  order: PurchaseOrder; document: PoDocument }
   | { ok: false; error: string };
+
+// ── Sheet Output ──────────────────────────────────────────────
+
+export type SheetCellValue = string | number | null;
+
+// A row is a map of column name to value.
+// Column order follows SheetTable.headers.
+export interface SheetRow {
+  [column: string]: SheetCellValue;
+}
+
+export interface SheetTable {
+  headers: string[];
+  rows:    SheetRow[];
+  title?:  string;    // optional; written as comment line in CSV output
+}
+
+// csv: RFC 4180-compliant CSV string — universal format.
+// Compatible with user download, Google Sheets API upload, and Excel import.
+// Interface layer handles file write or API delivery.
+export type SheetOutputResult =
+  | { ok: true;  csv: string; rowCount: number; columnCount: number }
+  | { ok: false; error: string };
+
+// ── Orchestrator Tool Integration ─────────────────────────────
+
+export type ToolCallInput =
+  | { tool: 'todo_create';    input: TodoCreateInput }
+  | { tool: 'todo_update';    input: TodoUpdateInput }       // direct write, no gate
+  | { tool: 'comms_draft';    input: CommsDraftInput }
+  | { tool: 'po_generate';    input: PoGenerateInput }
+  | { tool: 'spec_lookup';    input: SpecLookupInput }       // read-only
+  | { tool: 'expense_parse';  input: ExpenseParseInput }     // read-only
+  | { tool: 'sheet_output';   input: SheetTable }            // read-only, no gate
+  | { tool: 'log_diagnostic'; input: DiagnosticLogInput };   // system-initiated
+
+export type ToolCallStatus =
+  | { status: 'approved';     tool: string; result: unknown }
+  | { status: 'rejected';     tool: string }
+  | { status: 'timeout';      tool: string }
+  | { status: 'direct_write'; tool: string; result: unknown }
+  | { status: 'read_result';  tool: string; result: unknown }
+  | { status: 'error';        tool: string; error: string };

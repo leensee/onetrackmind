@@ -1,0 +1,84 @@
+// ============================================================
+// OTM Tools — Sheet Output
+// Produces RFC 4180-compliant CSV from tabular data.
+// Universal format: compatible with user download (.csv),
+// Google Sheets API upload, and Excel import.
+// Interface layer handles file write or API delivery.
+// Pure functions only — no DB access, no file system calls.
+// ============================================================
+
+import {
+  SheetTable,
+  SheetRow,
+  SheetCellValue,
+  SheetOutputResult,
+} from '../types';
+
+// ── Validation ────────────────────────────────────────────────
+
+export function validateSheetTable(table: SheetTable): string | null {
+  if (!Array.isArray(table.headers) || table.headers.length === 0) {
+    return 'headers must be a non-empty array';
+  }
+  const seen = new Set<string>();
+  for (const h of table.headers) {
+    if (!h || h.trim() === '') return 'each header must be a non-empty string';
+    if (seen.has(h)) return `duplicate header: "${h}"`;
+    seen.add(h);
+  }
+  if (!Array.isArray(table.rows) || table.rows.length === 0) {
+    return 'rows must be a non-empty array';
+  }
+  return null;
+}
+
+// ── Pure Functions ────────────────────────────────────────────
+
+// RFC 4180 cell escaping:
+// - Wrap in double quotes if value contains comma, double quote, or newline
+// - Double any internal double quotes
+// - Null → empty string
+export function escapeCsvCell(value: SheetCellValue): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+// Builds one CSV row string from a SheetRow, ordered by headers.
+// Missing keys produce empty cells — never throws on missing columns.
+export function buildCsvRow(row: SheetRow, headers: string[]): string {
+  return headers.map(h => escapeCsvCell(row[h] ?? null)).join(',');
+}
+
+// Produces RFC 4180 CSV string from a SheetTable.
+// CRLF line endings per spec.
+// Optional title written as a comment line (#) at top —
+// Google Sheets and Excel ignore comment lines on import.
+export function buildCsvPayload(table: SheetTable): string {
+  const lines: string[] = [];
+  if (table.title) {
+    lines.push(`# ${table.title}`);
+  }
+  lines.push(table.headers.map(h => escapeCsvCell(h)).join(','));
+  for (const row of table.rows) {
+    lines.push(buildCsvRow(row, table.headers));
+  }
+  return lines.join('\r\n');
+}
+
+// Main entry — validates then builds.
+export function buildSheetOutput(table: SheetTable): SheetOutputResult {
+  const validationError = validateSheetTable(table);
+  if (validationError) return { ok: false, error: validationError };
+
+  const csv = buildCsvPayload(table);
+  return {
+    ok:          true,
+    csv,
+    rowCount:    table.rows.length,
+    columnCount: table.headers.length,
+  };
+}
