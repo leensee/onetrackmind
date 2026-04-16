@@ -503,3 +503,47 @@ export interface CommsDraftInput {
 export type CommsDraftResult =
   | { ok: true;  draft: CommsDraft }
   | { ok: false; error: string };
+
+// ── Expense Parser ────────────────────────────────────────────
+
+export type PurchaseMethod =
+  | { type: 'card';    lastFour?: string }
+  | { type: 'account'; accountRef?: string }
+  | { type: 'cash' }
+  | { type: 'unknown' };
+
+export interface ExpenseLineItem {
+  description: string;
+  quantity?:   number;
+  unitPrice?:  number;
+  totalPrice?: number;
+}
+
+// Partial results are first-class — fields not extractable are null.
+// rawText is always present (verbatim input or extracted text).
+// confidence reflects overall extraction quality.
+// parseWarnings lists non-fatal issues encountered during parsing.
+export interface ExpenseRecord {
+  vendor:         string | null;
+  date:           string | null;       // ISO 8601 when extractable
+  amount:         number | null;       // total, parsed float
+  currency:       string;              // defaults to 'USD'
+  purchaseMethod: PurchaseMethod | null;
+  lineItems:      ExpenseLineItem[];
+  rawText:        string;
+  confidence:     'high' | 'medium' | 'low';
+  parseWarnings:  string[];
+}
+
+export interface ExpenseParseInput {
+  inputType:      'text' | 'image';
+  text?:          string;        // required when inputType === 'text'
+  imageBytes?:    Uint8Array;    // required when inputType === 'image'
+  imageMimeType?: string;        // required when inputType === 'image'
+  sessionId:      string;
+  requestId:      string;
+}
+
+export type ExpenseParseResult =
+  | { ok: true;  record: ExpenseRecord }
+  | { ok: false; error: string };
