@@ -139,16 +139,53 @@ async function runTests(): Promise<void> {
     assert(!result[0]!.match(/^[-*]\s/m), 'must strip list markers');
   });
 
-  // ── formatForPush ─────────────────────────────────────────
+ // ── formatForPush ─────────────────────────────────────────
+  // Three explicit states per 2026-04-11 Phase 2 audit fix:
+  //   1. no key provided          → encryptedContent omitted, notification fires
+  //   2. valid key provided       → encryptedContent present (iv, authTag, ciphertext)
+  //   3. malformed key provided   → encryptedContent omitted, notification fires
+  // Invariant: notification fires in all three states; plaintext never transmitted.
 
-  test('formatForPush: correct FCM payload shape', () => {
+  // Valid test key — 64 hex chars. Deterministic, non-secret, test-only.
+  const VALID_TEST_KEY   = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  const INVALID_TEST_KEY = 'not-a-valid-hex-key';
+
+  test('formatForPush: no key — encryptedContent omitted, notification fires', () => {
     const result = formatForPush(SHORT_TEXT, 'session-001');
-    const notif = result['notification'] as { title: string; body: string };
-    const data  = result['data'] as { sessionId: string; fullContent: string };
+    const notif  = result['notification'] as { title: string; body: string };
+    const data   = result['data']         as Record<string, unknown>;
     assert(notif.title === 'OneTrackMind', 'title must be OneTrackMind');
-    assert(typeof notif.body === 'string', 'body must be string');
-    assert(data.sessionId === 'session-001', 'sessionId must be in data');
-    assert(data.fullContent === SHORT_TEXT, 'fullContent must be full text');
+    assert(typeof notif.body === 'string' && notif.body.length > 0, 'body must be non-empty string');
+    assert(data['sessionId'] === 'session-001', 'sessionId must be in data');
+    assert(!('encryptedContent' in data), 'encryptedContent must be omitted when no key provided');
+  });
+
+  test('formatForPush: valid key — encryptedContent present with iv, authTag, ciphertext', () => {
+    const result = formatForPush(SHORT_TEXT, 'session-001', VALID_TEST_KEY);
+    const data   = result['data'] as Record<string, unknown>;
+    assert('encryptedContent' in data, 'encryptedContent must be present when valid key provided');
+    const enc = data['encryptedContent'] as { iv: string; authTag: string; ciphertext: string };
+    assert(typeof enc.iv === 'string'         && /^[0-9a-f]+$/i.test(enc.iv),         'iv must be hex string');
+    assert(typeof enc.authTag === 'string'    && /^[0-9a-f]+$/i.test(enc.authTag),    'authTag must be hex string');
+    assert(typeof enc.ciphertext === 'string' && /^[0-9a-f]+$/i.test(enc.ciphertext), 'ciphertext must be hex string');
+    assert(enc.ciphertext !== SHORT_TEXT, 'ciphertext must not equal plaintext (no leak)');
+    assert(!enc.ciphertext.includes(SHORT_TEXT), 'ciphertext must not contain plaintext substring');
+  });
+
+  test('formatForPush: invalid key — encryptedContent omitted, notification fires', () => {
+    // Suppress expected console.error during this test only
+    const origErr = console.error;
+    console.error = () => { /* swallow expected failure log */ };
+    try {
+      const result = formatForPush(SHORT_TEXT, 'session-001', INVALID_TEST_KEY);
+      const notif  = result['notification'] as { title: string; body: string };
+      const data   = result['data']         as Record<string, unknown>;
+      assert(notif.title === 'OneTrackMind', 'notification must still fire on key failure');
+      assert(data['sessionId'] === 'session-001', 'sessionId must be present on key failure');
+      assert(!('encryptedContent' in data), 'encryptedContent must be omitted on key failure');
+    } finally {
+      console.error = origErr;
+    }
   });
 
   test('formatForPush: body truncated to PUSH_BODY_MAX_CHARS', () => {
@@ -160,7 +197,7 @@ async function runTests(): Promise<void> {
       `push body must be ≤ ${PUSH_BODY_MAX_CHARS} chars`
     );
   });
-
+  
   // ── routeToApp ────────────────────────────────────────────
 
   await test('routeToApp: success delivers to app channel', async () => {

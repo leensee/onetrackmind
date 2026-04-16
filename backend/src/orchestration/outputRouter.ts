@@ -167,7 +167,7 @@ export function formatForPush(
   sessionId:     string,
   fcmPayloadKey?: string
 ): Record<string, unknown> {
-  let encryptedContent: Record<string, unknown> | undefined;
+  let encryptedContent: EncryptedContent | undefined;
 
   if (fcmPayloadKey) {
     try {
