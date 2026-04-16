@@ -547,3 +547,59 @@ export interface ExpenseParseInput {
 export type ExpenseParseResult =
   | { ok: true;  record: ExpenseRecord }
   | { ok: false; error: string };
+
+// ── PO Generator ──────────────────────────────────────────────
+
+export interface PoLineItem {
+  description: string;
+  quantity:    number;    // positive integer
+  unitPrice:   number;    // positive float
+  partNumber?: string;
+}
+
+// Internal record — written to orders_log.
+// status is always 'draft' at generation time.
+// Approval required before any status change.
+export interface PurchaseOrder {
+  poNumber:          string;        // PO-YYYYMMDD-NNNN
+  userId:            string;
+  sessionId:         string;
+  vendorName:        string;
+  lineItems:         PoLineItem[];
+  subtotal:          number;
+  issuedDate:        string;        // ISO 8601
+  status:            'draft';
+  equipmentId:       string | null;
+  equipmentPosition: number | null;
+  notes?:            string;
+}
+
+// Formatted representation for print/share.
+// Tool produces structured data; rendering is the interface layer's job.
+export interface PoDocument {
+  poNumber:              string;
+  vendorName:            string;
+  issuedDate:            string;
+  equipmentLabel:        string | null;   // e.g. "Pos 1 — Nordco CX Spiker #1"
+  lineItemsFormatted:    string[];        // e.g. "Filter HF6553  x1  $12.50  =  $12.50"
+  subtotalFormatted:     string;          // e.g. "$23.21"
+  notes:                 string | null;
+  status:                'draft';
+}
+
+export interface PoGenerateInput {
+  userId:            string;
+  sessionId:         string;
+  requestId:         string;
+  sequenceNumber:    number;     // caller supplies; tool formats into poNumber
+  vendorName:        string;
+  lineItems:         PoLineItem[];
+  equipmentId:       string | null;
+  equipmentPosition: number | null;
+  issuedDate?:       string;    // ISO 8601; defaults to today if absent
+  notes?:            string;
+}
+
+export type PoGenerateResult =
+  | { ok: true;  order: PurchaseOrder; document: PoDocument }
+  | { ok: false; error: string };
