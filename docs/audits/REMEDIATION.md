@@ -54,7 +54,7 @@ for full finding detail. Stop after Section 1 and await approval.
 
 | # | GitHub Issue | Finding IDs | Files touched | Dependency | Status |
 |---|---|---|---|---|---|
-| 1 | #3 | TYU-4, TYU-5 | `src/utils/typeUtils.ts` | none | ⬜ TODO |
+| 1 | #3 | TYU-4, TYU-5 | `backend/src/orchestration/typeUtils.ts` | none | ✅ Committed |
 | 2 | #4 | OT-4, OT-5 | `src/orders/`, DB migration | none | ⬜ TODO |
 | 3 | #5 | SP-6, SP-7, CL-5, CL-6, CL-7, CL-8 | `sessionPersistence.ts`, `contextLoader.ts` | needs #1 | ⬜ TODO |
 | 4 | #6 | CD-1, T-5 | `commsDrafter.ts`, `types.ts` | none | ⬜ TODO |
