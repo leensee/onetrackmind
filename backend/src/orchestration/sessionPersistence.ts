@@ -19,6 +19,7 @@ import {
   Message,
   ConsistContext,
 } from './types';
+import { extractString, extractOneOf } from './typeUtils';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -264,6 +265,36 @@ export async function replaySessionLog(
     isFromLogReplay:     true,
   };
 
+  const FLAG_TYPES = ['safety', 'push', 'pull', 'audit'] as const;
+
+  // Typed accessors — throw invalid_payload on missing or wrong-type fields
+  // instead of casting blindly. Resolves 2026-04-16-SP-6.
+  const requireString = (
+    data: Record<string, unknown>, field: string, entryId: string
+  ): string => {
+    const v = extractString(data, field);
+    if (v === undefined) {
+      throw new SessionPersistenceError(
+        `Missing or non-string field '${field}' in entryId=${entryId}`,
+        sessionId, 'replaySessionLog', 'invalid_payload'
+      );
+    }
+    return v;
+  };
+
+  const requireFlagType = (
+    data: Record<string, unknown>, entryId: string
+  ): ActiveFlag['type'] => {
+    const v = extractOneOf(data, 'type', FLAG_TYPES);
+    if (v === undefined) {
+      throw new SessionPersistenceError(
+        `Missing or invalid 'type' field in entryId=${entryId}`,
+        sessionId, 'replaySessionLog', 'invalid_payload'
+      );
+    }
+    return v;
+  };
+
   for (const row of rows) {
     if (row.schemaVersion !== CURRENT_SCHEMA_VERSION) {
       console.warn(
@@ -273,28 +304,32 @@ export async function replaySessionLog(
       continue;
     }
 
+    // Unparseable payload is corruption, not forward-compat — surface it.
+    // Resolves 2026-04-16-SP-7.
     let data: Record<string, unknown>;
     try {
       data = JSON.parse(row.payload) as Record<string, unknown>;
-    } catch {
-      console.warn(
-        `[SessionPersistence] skipping unparseable payload entryId=${row.entryId}`
+    } catch (err) {
+      throw new SessionPersistenceError(
+        `Unparseable payload entryId=${row.entryId}: ${(err as Error).message}`,
+        sessionId, 'replaySessionLog', 'invalid_payload'
       );
-      continue;
     }
 
     // Apply typed state mutation — exhaustive switch, no fall-through
     switch (row.entryType) {
-      case 'session_open':
-        state.editionId  = data['editionId'] as string;
-        state.openedAt   = data['openedAt'] as string;
-        state.lastInteractionAt = data['openedAt'] as string;
+      case 'session_open': {
+        const openedAt = requireString(data, 'openedAt', row.entryId);
+        state.editionId         = requireString(data, 'editionId', row.entryId);
+        state.openedAt          = openedAt;
+        state.lastInteractionAt = openedAt;
         break;
+      }
 
       case 'user_message':
         state.conversationHistory.push({
           role:      'user',
-          content:   data['content'] as string,
+          content:   requireString(data, 'content', row.entryId),
           timestamp: row.timestamp,
         } satisfies Message);
         state.lastInteractionAt = row.timestamp;
@@ -303,7 +338,7 @@ export async function replaySessionLog(
       case 'assistant_response':
         state.conversationHistory.push({
           role:      'assistant',
-          content:   data['content'] as string,
+          content:   requireString(data, 'content', row.entryId),
           timestamp: row.timestamp,
         } satisfies Message);
         state.lastInteractionAt = row.timestamp;
@@ -311,16 +346,16 @@ export async function replaySessionLog(
 
       case 'flag_raised':
         state.activeFlags.push({
-          flagId:       data['flagId'] as string,
-          type:         data['type'] as ActiveFlag['type'],
-          content:      data['content'] as string,
+          flagId:       requireString(data, 'flagId', row.entryId),
+          type:         requireFlagType(data, row.entryId),
+          content:      requireString(data, 'content', row.entryId),
           raisedAt:     row.timestamp,
           acknowledged: false,
         } satisfies ActiveFlag);
         break;
 
       case 'flag_acknowledged': {
-        const flagId = data['flagId'] as string;
+        const flagId = requireString(data, 'flagId', row.entryId);
         const flag = state.activeFlags.find(f => f.flagId === flagId);
         if (flag) flag.acknowledged = true;
         break;
