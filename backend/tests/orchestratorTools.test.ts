@@ -6,11 +6,14 @@
 
 import EventEmitter from 'events';
 import {
-  dispatchToolCall, resetPoSequence,
+  dispatchToolCall,
   ToolDeps, ToolWriteDbClient,
 } from '../src/orchestration/orchestratorTools';
 import { WsSend, InboundDecisionEvent } from '../src/orchestration/approvalGate';
 import { ImageExtractorClient } from '../src/orchestration/tools/expenseParser';
+import {
+  PoSequenceDbClient, createInMemoryPoSequenceStore,
+} from '../src/orchestration/tools/poSequence';
 import {
   TodoCreateInput, TodoUpdateInput, CommsDraftInput,
   PoGenerateInput, SpecLookupInput, ExpenseParseInput,
@@ -19,7 +22,12 @@ import {
 
 // ── Stub Factories ────────────────────────────────────────────
 
-function makeDb(opts: { failOn?: 'run' | 'get' | 'all'; exists?: boolean } = {}): ToolWriteDbClient {
+function makeDb(opts: {
+  failOn?: 'run' | 'get' | 'all';
+  exists?: boolean;
+  sequenceStore?: PoSequenceDbClient;
+} = {}): ToolWriteDbClient {
+  const seq = opts.sequenceStore ?? createInMemoryPoSequenceStore();
   return {
     run: async () => { if (opts.failOn === 'run') throw new Error('DB error'); },
     get: async <T>(): Promise<T | undefined> => {
@@ -41,6 +49,7 @@ function makeDb(opts: { failOn?: 'run' | 'get' | 'all'; exists?: boolean } = {})
       }] as unknown as T[];
       return [] as T[];
     },
+    allocateNext: (userId) => seq.allocateNext(userId),
   };
 }
 
@@ -58,11 +67,17 @@ function makeDeps(opts: {
   decision?: InboundDecisionEvent['decision'];
   requestId?: string;
   extractor?: ImageExtractorClient;
+  sequenceStore?: PoSequenceDbClient;
 } = {}): ToolDeps {
   const reqId = opts.requestId ?? 'r1';
-  const dbOpts: { failOn?: 'run' | 'get' | 'all'; exists?: boolean } = {};
-  if (opts.failDb  !== undefined) dbOpts.failOn = opts.failDb;
-  if (opts.dbExists !== undefined) dbOpts.exists = opts.dbExists;
+  const dbOpts: {
+    failOn?: 'run' | 'get' | 'all';
+    exists?: boolean;
+    sequenceStore?: PoSequenceDbClient;
+  } = {};
+  if (opts.failDb         !== undefined) dbOpts.failOn        = opts.failDb;
+  if (opts.dbExists       !== undefined) dbOpts.exists        = opts.dbExists;
+  if (opts.sequenceStore  !== undefined) dbOpts.sequenceStore = opts.sequenceStore;
   const deps: ToolDeps = {
     db:        makeDb(dbOpts),
     wsSend:    (() => { /* no-op */ }) as WsSend,
@@ -116,13 +131,10 @@ async function runTests(): Promise<void> {
   }
   function assert(c: boolean, m: string): void { if (!c) throw new Error(m); }
 
-  beforeEach: resetPoSequence();
-
   // ── todo_create ────────────────────────────────────────────
   console.log('\n[orchestratorTools] todo_create');
 
   await test('approve → status:approved', async () => {
-    resetPoSequence();
     const r = await dispatchToolCall({ tool: 'todo_create', input: TODO_CREATE }, makeDeps());
     assert(r.status === 'approved' && r.tool === 'todo_create', `got ${r.status}`);
   });
@@ -183,7 +195,6 @@ async function runTests(): Promise<void> {
   console.log('\n[orchestratorTools] po_generate');
 
   await test('approve → status:approved with order + document', async () => {
-    resetPoSequence();
     const r = await dispatchToolCall({ tool: 'po_generate', input: PO_INPUT }, makeDeps());
     assert(r.status === 'approved', `got ${r.status}`);
     if (r.status === 'approved') {
@@ -192,12 +203,93 @@ async function runTests(): Promise<void> {
     }
   });
   await test('reject → status:rejected', async () => {
-    resetPoSequence();
     const r = await dispatchToolCall(
       { tool: 'po_generate', input: PO_INPUT },
       makeDeps({ decision: 'reject' })
     );
     assert(r.status === 'rejected', `got ${r.status}`);
+  });
+
+  // OT-4 / OT-5 regression tests: sequence is DB-backed, not
+  // in-memory module state. Gaps are fine, collisions are not.
+  await test('concurrent allocations for same user return distinct monotonic sequences', async () => {
+    const store = createInMemoryPoSequenceStore();
+    const [r1, r2] = await Promise.all([
+      dispatchToolCall(
+        { tool: 'po_generate', input: { ...PO_INPUT, requestId: 'r1' } },
+        makeDeps({ requestId: 'r1', sequenceStore: store })
+      ),
+      dispatchToolCall(
+        { tool: 'po_generate', input: { ...PO_INPUT, requestId: 'r2' } },
+        makeDeps({ requestId: 'r2', sequenceStore: store })
+      ),
+    ]);
+    assert(
+      r1.status === 'approved' && r2.status === 'approved',
+      `both approved; got ${r1.status}, ${r2.status}`
+    );
+    if (r1.status === 'approved' && r2.status === 'approved') {
+      const po1 = (r1.result as { order: { poNumber: string } }).order.poNumber;
+      const po2 = (r2.result as { order: { poNumber: string } }).order.poNumber;
+      assert(po1 !== po2, `distinct poNumbers; got ${po1}, ${po2}`);
+      const seqs = [po1, po2].map(p => Number(p.slice(-4))).sort((a, b) => a - b);
+      assert(seqs[0] === 1 && seqs[1] === 2, `monotonic 1,2; got ${seqs.join(',')}`);
+    }
+  });
+
+  await test('restart simulation → next allocation resumes from seeded state', async () => {
+    const storeAfterRestart = createInMemoryPoSequenceStore({ u1: 42 });
+    const r = await dispatchToolCall(
+      { tool: 'po_generate', input: PO_INPUT },
+      makeDeps({ sequenceStore: storeAfterRestart })
+    );
+    assert(r.status === 'approved', `got ${r.status}`);
+    if (r.status === 'approved') {
+      const po = (r.result as { order: { poNumber: string } }).order.poNumber;
+      assert(po.endsWith('-0043'), `expected -0043 suffix; got ${po}`);
+    }
+  });
+
+  await test('reject consumes sequence — next approve gets next number (OT-5 fix)', async () => {
+    const store = createInMemoryPoSequenceStore();
+    const r1 = await dispatchToolCall(
+      { tool: 'po_generate', input: { ...PO_INPUT, requestId: 'r1' } },
+      makeDeps({ requestId: 'r1', decision: 'reject', sequenceStore: store })
+    );
+    assert(r1.status === 'rejected', `first should reject; got ${r1.status}`);
+    const r2 = await dispatchToolCall(
+      { tool: 'po_generate', input: { ...PO_INPUT, requestId: 'r2' } },
+      makeDeps({ requestId: 'r2', sequenceStore: store })
+    );
+    assert(r2.status === 'approved', `second should approve; got ${r2.status}`);
+    if (r2.status === 'approved') {
+      const po = (r2.result as { order: { poNumber: string } }).order.poNumber;
+      assert(po.endsWith('-0002'), `sequence 2 (not reused 1); got ${po}`);
+    }
+  });
+
+  await test('cross-user sequences are independent', async () => {
+    const store = createInMemoryPoSequenceStore();
+    const r1 = await dispatchToolCall(
+      { tool: 'po_generate', input: { ...PO_INPUT, userId: 'u1', requestId: 'r1' } },
+      makeDeps({ requestId: 'r1', sequenceStore: store })
+    );
+    const r2 = await dispatchToolCall(
+      { tool: 'po_generate', input: { ...PO_INPUT, userId: 'u2', requestId: 'r2' } },
+      makeDeps({ requestId: 'r2', sequenceStore: store })
+    );
+    assert(
+      r1.status === 'approved' && r2.status === 'approved',
+      `both approved; got ${r1.status}, ${r2.status}`
+    );
+    if (r1.status === 'approved' && r2.status === 'approved') {
+      const po1 = (r1.result as { order: { poNumber: string } }).order.poNumber;
+      const po2 = (r2.result as { order: { poNumber: string } }).order.poNumber;
+      assert(
+        po1.endsWith('-0001') && po2.endsWith('-0001'),
+        `each user starts at 1; got ${po1}, ${po2}`
+      );
+    }
   });
 
   // ── spec_lookup ────────────────────────────────────────────

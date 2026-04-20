@@ -16,6 +16,7 @@ import {
 import { buildTodoDraft, writeTodo, updateTodoStatus, TodoWriteDbClient } from './tools/todoTool';
 import { buildCommsDraft } from './tools/commsDrafter';
 import { buildPoGenerateResult, writePurchaseOrder, PoWriteDbClient } from './tools/poGenerator';
+import { PoSequenceDbClient } from './tools/poSequence';
 import { specLookup, SpecLookupDbClient } from './tools/specLookup';
 import { parseExpense, ImageExtractorClient } from './tools/expenseParser';
 import { buildSheetOutput } from './tools/sheetOutput';
@@ -34,7 +35,8 @@ import {
 // db covers all write operations across tool layer modules.
 
 export interface ToolWriteDbClient
-  extends TodoWriteDbClient, PoWriteDbClient, DiagnosticLogDbClient, SpecLookupDbClient {
+  extends TodoWriteDbClient, PoWriteDbClient, DiagnosticLogDbClient,
+          SpecLookupDbClient, PoSequenceDbClient {
   all<T>(sql: string, params: unknown[]): Promise<T[]>;
 }
 
@@ -45,13 +47,6 @@ export interface ToolDeps {
   extractor?:  ImageExtractorClient;
   timeoutMs?:  number;
 }
-
-// ── PO Sequence Number ────────────────────────────────────────
-// In-memory sequence counter for PO numbers within a session.
-// Phase 7 will persist this to DB. For now: increments per call,
-// resets on process restart. Sufficient for Phase 3.
-let poSequenceCounter = 0;
-export function resetPoSequence(): void { poSequenceCounter = 0; } // exported for tests
 
 // ── Approval Gate Helper ──────────────────────────────────────
 // Runs the approval gate and maps ApprovalGateError to ToolCallStatus.
@@ -124,10 +119,18 @@ export async function dispatchToolCall(
       return { status: 'approved', tool, result: draft };
     }
 
-    // ── po_generate: draft → gate → write ──────────────────
+    // ── po_generate: allocate → draft → gate → write ───────
+    // Sequence is allocated once, up front, and is consumed
+    // regardless of gate outcome. Gaps in PO numbers are fine —
+    // see poSequence.ts and audit finding 2026-04-16-OT-5.
     case 'po_generate': {
-      poSequenceCounter++;
-      const genResult = buildPoGenerateResult(call.input, poSequenceCounter);
+      let sequence: number;
+      try {
+        sequence = await deps.db.allocateNext(call.input.userId);
+      } catch (err) {
+        return { status: 'error', tool, error: (err as Error).message };
+      }
+      const genResult = buildPoGenerateResult(call.input, sequence);
       if (!genResult.ok) return { status: 'error', tool, error: genResult.error };
       const { order, document } = genResult;
       const gate = await runGate(
@@ -135,8 +138,8 @@ export async function dispatchToolCall(
       ).catch(err => ({ gateErr: (err as Error).message }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
-      if (gate === 'rejected') { poSequenceCounter--; return { status: 'rejected', tool }; }
-      if (gate === 'timeout')  { poSequenceCounter--; return { status: 'timeout',  tool }; }
+      if (gate === 'rejected') return { status: 'rejected', tool };
+      if (gate === 'timeout')  return { status: 'timeout',  tool };
 
       const writeResult = await writePurchaseOrder(order, call.input.requestId, deps.db);
       if (writeResult) return { status: 'error', tool, error: writeResult.message };
