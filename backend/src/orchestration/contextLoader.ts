@@ -94,10 +94,38 @@ export async function fetchStyleProfile(
 // ── User Settings Fetch ───────────────────────────────────────
 // Maps setting_key/setting_value rows into typed UserSettings.
 // Applies DEFAULT_USER_SETTINGS for any missing keys.
+// Corrupt values surface as ContextLoaderError rather than silently
+// coercing to NaN / [] / out-of-union strings. Resolves
+// 2026-04-16-CL-5..CL-8.
 
 type SettingRow = { setting_key: string; setting_value: string };
 
-function coerceSetting(key: keyof UserSettings, raw: string): UserSettings[keyof UserSettings] {
+// Discriminated coercion result — pure, never throws. Caller has
+// the userId context needed to build a meaningful ContextLoaderError.
+export type CoerceResult =
+  | { ok: true;  value: UserSettings[keyof UserSettings] }
+  | { ok: false;
+      reason:
+        | 'malformed_json'
+        | 'wrong_shape'
+        | 'non_finite_number'
+        | 'invalid_union'
+        | 'invalid_boolean';
+      detail: string;
+    };
+
+// String-union keys on UserSettings. Any key present here must match
+// one of the allowed values; any key absent is treated as a plain string.
+const UNION_VALUES = {
+  voiceResponseMode:            ['always', 'wake_word_only', 'never'],
+  defaultSessionOpenPreference: ['summary', 'skip'],
+} as const satisfies Partial<Record<keyof UserSettings, readonly string[]>>;
+
+function isUserSettingsKey(k: string): k is keyof UserSettings {
+  return k in DEFAULT_USER_SETTINGS;
+}
+
+export function coerceSetting(key: keyof UserSettings, raw: string): CoerceResult {
   const numericKeys: Array<keyof UserSettings> = [
     'digestThresholdHours',
     'pushRepeatIntervalHours',
@@ -110,18 +138,48 @@ function coerceSetting(key: keyof UserSettings, raw: string): UserSettings[keyof
   const booleanKeys: Array<keyof UserSettings> = ['styleProfileVisible'];
   const jsonArrayKeys: Array<keyof UserSettings> = ['styleExclusions'];
 
-  if (numericKeys.includes(key)) return Number(raw);
-  if (booleanKeys.includes(key)) return raw === 'true';
-  if (jsonArrayKeys.includes(key)) {
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as string[]) : [];
-    } catch {
-      return [];
+  if (numericKeys.includes(key)) {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      return { ok: false, reason: 'non_finite_number', detail: `raw=${JSON.stringify(raw)}` };
     }
+    return { ok: true, value: n };
   }
-  // String and union-string keys returned as-is
-  return raw;
+
+  if (booleanKeys.includes(key)) {
+    if (raw === 'true')  return { ok: true, value: true };
+    if (raw === 'false') return { ok: true, value: false };
+    return { ok: false, reason: 'invalid_boolean', detail: `raw=${JSON.stringify(raw)}` };
+  }
+
+  if (jsonArrayKeys.includes(key)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      return { ok: false, reason: 'malformed_json', detail: (err as Error).message };
+    }
+    if (!Array.isArray(parsed)) {
+      return { ok: false, reason: 'wrong_shape', detail: `expected array, got ${typeof parsed}` };
+    }
+    if (!parsed.every(v => typeof v === 'string')) {
+      return { ok: false, reason: 'wrong_shape', detail: 'array contained non-string element' };
+    }
+    return { ok: true, value: parsed as string[] };
+  }
+
+  const allowed: readonly string[] | undefined =
+    (UNION_VALUES as Partial<Record<keyof UserSettings, readonly string[]>>)[key];
+  if (allowed && !allowed.includes(raw)) {
+    return {
+      ok: false,
+      reason: 'invalid_union',
+      detail: `value=${JSON.stringify(raw)} not in [${allowed.join(', ')}]`,
+    };
+  }
+
+  // Plain string key — pass through
+  return { ok: true, value: raw };
 }
 
 export async function fetchUserSettings(
@@ -155,10 +213,23 @@ export async function fetchUserSettings(
   const settingsMap = settings as unknown as Record<string, unknown>;
 
   for (const row of rows) {
-    const key = row.setting_key as keyof UserSettings;
-    if (key in DEFAULT_USER_SETTINGS) {
-      settingsMap[key] = coerceSetting(key, row.setting_value);
+    // Unknown keys warn-and-continue — treated as forward-compat drift,
+    // same pattern as schemaVersion mismatch in sessionPersistence.
+    if (!isUserSettingsKey(row.setting_key)) {
+      console.warn(
+        `[ContextLoader] unknown user_settings key=${row.setting_key} userId=${userId} — skipping`
+      );
+      continue;
     }
+    const result = coerceSetting(row.setting_key, row.setting_value);
+    if (!result.ok) {
+      throw new ContextLoaderError(
+        `Corrupt user_settings row key=${row.setting_key} reason=${result.reason} ${result.detail}`,
+        userId,
+        'fetchUserSettings'
+      );
+    }
+    settingsMap[row.setting_key] = result.value;
   }
 
   return settings;
