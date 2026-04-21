@@ -276,9 +276,11 @@ function checkUnverifiedCost(
 // ── Rule 6: SMS Format Violation ─────────────────────────────
 // Severity: warn
 // Detects markdown formatting in SMS-channel responses.
-// Pattern list is sourced from the shared formatters module so
-// detection (here) and removal (outputRouter.formatForSms) cannot
-// drift. See audit finding PF-15 + Pattern 7.
+// Pattern list is sourced from the shared formatters module to
+// reduce drift in preflight detection; full alignment with
+// outputRouter.formatForSms will happen once OR-3 / issue #25
+// migrates SMS formatting there to the shared patterns. See audit
+// finding PF-15 + Pattern 7.
 
 function checkSmsFormatViolation(
   input: PreflightInput,
