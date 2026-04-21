@@ -52,9 +52,15 @@ export function validateRecipients(recipients: string[]): string | null {
 }
 
 // Validates CommsDraftInput. Returns null on valid; error string on failure.
+// Kept as runtime defense-in-depth at the JSON boundary even though the
+// discriminated-union type encodes most of these invariants for TS callers —
+// model-originated tool input is typed but never runtime-checked upstream.
 export function validateCommsDraftInput(input: CommsDraftInput): string | null {
-  if (input.channel !== 'sms' && input.channel !== 'email') {
-    return `channel must be 'sms' or 'email'; got: ${input.channel}`;
+  // Widened to string: the union narrows `channel` to 'sms' | 'email', so a
+  // literal comparison below would otherwise trip TS2367 at runtime-guard sites.
+  const channel: string = input.channel;
+  if (channel !== 'sms' && channel !== 'email') {
+    return `channel must be 'sms' or 'email'; got: ${channel}`;
   }
   const recipientsError = validateRecipients(input.recipients);
   if (recipientsError) return recipientsError;
@@ -69,9 +75,9 @@ export function validateCommsDraftInput(input: CommsDraftInput): string | null {
     if (!input.subject || input.subject.trim() === '') {
       return 'subject must not be empty for email channel';
     }
-  }
-  if (input.replyTo !== undefined && input.replyTo.trim() === '') {
-    return 'replyTo must not be empty string when provided';
+    if (input.replyTo !== undefined && input.replyTo.trim() === '') {
+      return 'replyTo must not be empty string when provided';
+    }
   }
   return null;
 }
@@ -93,11 +99,12 @@ export function buildCommsDraft(input: CommsDraftInput): CommsDraftResult {
     return { ok: true, draft };
   }
 
-  // email
+  // email — `input` is narrowed to EmailDraftInput here, so `subject` is a
+  // guaranteed string (no `!` assertion needed).
   const draft: EmailDraft = {
     channel:    'email',
     recipients: input.recipients.map(r => r.trim()),
-    subject:    input.subject!.trim(),
+    subject:    input.subject.trim(),
     body:       input.body.trim(),
     toneLevel:  input.toneLevel,
   };
