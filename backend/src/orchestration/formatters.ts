@@ -109,9 +109,10 @@ export function formatConsistContext(
  * tablet UI consumes this directly.
  *
  * Discriminated on draft shape:
- *  - TodoDraft: lacks a `channel` field; detected by `description`.
  *  - CommsDraft: SmsDraft | EmailDraft (channel: 'sms' | 'email').
  *  - PoDocument: detected by `poNumber`.
+ *  - TodoDraft: fallback case when neither `channel` nor `poNumber`
+ *    is present.
  */
 export function formatDraftForApproval(
   draft: TodoDraft | CommsDraft | PoDocument,
