@@ -18,6 +18,11 @@ import {
   PreflightResult,
 } from './types';
 import { sanitizeErrorMessage } from './primaryCall';
+import {
+  formatActiveFlags,
+  formatOpenItems,
+  formatConsistContext,
+} from './formatters';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -106,24 +111,18 @@ export function buildAuditPrompt(input: ModelAuditInput): string {
 
   const channel = event.metadata.channel ?? 'unknown';
 
-  const activeSafetyFlags = contextualData.activeFlags
-    .filter(f => f.type === 'safety' && !f.acknowledged)
-    .map(f => `- ${f.content}`)
-    .join('\n');
+  // Safety-only filter is audit-prompt business logic, not shared formatting.
+  const unackSafetyFlags = contextualData.activeFlags.filter(
+    f => f.type === 'safety' && !f.acknowledged,
+  );
+  const activeSafetyFlags = formatActiveFlags(unackSafetyFlags);
 
   const preflightSummary = preflightFlags.length === 0
     ? 'none'
     : preflightFlags.map(f => `- [${f.severity.toUpperCase()}] ${f.rule}: ${f.detail}`).join('\n');
 
-  const consistSummary = contextualData.consistContext
-    ? contextualData.consistContext.relevantMachines
-        .map(m => `  Pos ${m.position}: ${m.name}${m.serialNumber ? ` (SN: ${m.serialNumber})` : ''}`)
-        .join('\n')
-    : 'none';
-
-  const openItemsSummary = contextualData.openItems.length === 0
-    ? 'none'
-    : contextualData.openItems.map(i => `  [${i.category}] ${i.content}`).join('\n');
+  const consistSummary = formatConsistContext(contextualData.consistContext) || 'none';
+  const openItemsSummary = formatOpenItems(contextualData.openItems) || 'none';
 
   return [
     `EVENT TYPE: ${event.eventType}`,

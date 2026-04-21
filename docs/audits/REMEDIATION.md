@@ -58,7 +58,7 @@ for full finding detail. Stop after Section 1 and await approval.
 | 2 | #4 | OT-4, OT-5 | `backend/src/orchestration/orchestratorTools.ts`, `backend/src/orchestration/tools/poSequence.ts` (new) | none | ✅ Committed |
 | 3 | #5 | SP-6, SP-7, CL-5, CL-6, CL-7, CL-8 | `sessionPersistence.ts`, `contextLoader.ts` | needs #1 | ✅ Committed |
 | 4 | #6 | CD-1, T-5, CD-5 | `commsDrafter.ts`, `types.ts`, `commsDrafter.test.ts` | none | ✅ Committed |
-| 5 | #7 | OT-9, PA-8, MA-5, PF-15 | `src/utils/formatters.ts` (new) | none | ⬜ TODO |
+| 5 | #7 | OT-9, PA-8, MA-5, PF-15 | `backend/src/orchestration/formatters.ts` (new) | none | ✅ Committed |
 | 6 | #8 | AG-3, AG-10 | `approvalGate/pure.ts` (new), `approvalGate/index.ts` | none | ⬜ TODO |
 | 7 | #9 | AG-2, AG-4, S1-E2 | `approvalGate/`, `EditionConfig` type | needs #6 | ⬜ TODO |
 | 8 | #10 | MA-4, MA-5 | `buildAuditPrompt.ts`, `EditionConfig` | needs #7 | ⬜ TODO |
@@ -111,9 +111,9 @@ for full finding detail. Stop after Section 1 and await approval.
 
 ### #5 — OT-9 + shared formatters.ts
 **Findings:** OT-9, PA-8, MA-5, PF-15  
-**Files:** `src/utils/formatters.ts` (new file)  
-**Change:** Create `src/utils/formatters.ts`. Move human-readable draft content for the approval gate here. PA-8, MA-5, PF-15 formatting logic folds into this module.  
-**Tests:** Snapshot tests for each formatter output. Edge cases: empty fields, long strings, special characters.  
+**Files:** `backend/src/orchestration/formatters.ts` (new file). Minor edits to `orchestratorTools.ts`, `promptAssembler.ts`, `modelAudit.ts`, `preflight.ts`. Comment-only edit to `outputRouter.ts` (OR-3 migration tracked in issue #25).  
+**Change:** Create `backend/src/orchestration/formatters.ts` (codebase convention — `utils/` directory does not exist). Replace `JSON.stringify(draft)` in the orchestrator dispatcher with `formatDraftForApproval` so the approval gate receives human-readable content (OT-9). Migrate PA-8 (`buildContextBlock`), MA-5 (`buildAuditPrompt`), and PF-15 (Rule 6 markdown detection) to consume the shared module. OR-3 migration for `outputRouter.formatForSms` deferred to issue #25.  
+**Tests:** Unit tests for every exported formatter (element + list + draft + SMS patterns). Anti-drift test asserts shared formatter output appears verbatim in `buildAuditPrompt`.  
 **Commit type:** `feat`
 
 ---

@@ -30,6 +30,9 @@ import {
   ApprovalGateError,
 } from './approvalGate';
 
+// Shared formatters — human-readable rendering for approval gate (OT-9).
+import { formatDraftForApproval } from './formatters';
+
 // ── ToolDeps ──────────────────────────────────────────────────
 // All injected dependencies — never constructed here.
 // db covers all write operations across tool layer modules.
@@ -84,7 +87,7 @@ export async function dispatchToolCall(
       }
       const { draft } = draftResult;
       const gate = await runGate(
-        draft.requestId, JSON.stringify(draft), tool, deps
+        draft.requestId, formatDraftForApproval(draft), tool, deps
       ).catch(err => ({ gateErr: (err as Error).message }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
@@ -109,7 +112,7 @@ export async function dispatchToolCall(
       if (!draftResult.ok) return { status: 'error', tool, error: draftResult.error };
       const { draft } = draftResult;
       const gate = await runGate(
-        call.input.requestId, JSON.stringify(draft), tool, deps
+        call.input.requestId, formatDraftForApproval(draft), tool, deps
       ).catch(err => ({ gateErr: (err as Error).message }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
@@ -134,7 +137,7 @@ export async function dispatchToolCall(
       if (!genResult.ok) return { status: 'error', tool, error: genResult.error };
       const { order, document } = genResult;
       const gate = await runGate(
-        call.input.requestId, JSON.stringify(document), tool, deps
+        call.input.requestId, formatDraftForApproval(document), tool, deps
       ).catch(err => ({ gateErr: (err as Error).message }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
