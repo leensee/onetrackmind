@@ -8,6 +8,7 @@
 // ============================================================
 
 import { PreflightInput, PreflightResult, PreflightFlag } from './types';
+import { SMS_MARKDOWN_PATTERNS } from './formatters';
 
 // ── Rule 1: Autonomous Action Detected ───────────────────────
 // Severity: hold
@@ -275,15 +276,11 @@ function checkUnverifiedCost(
 // ── Rule 6: SMS Format Violation ─────────────────────────────
 // Severity: warn
 // Detects markdown formatting in SMS-channel responses.
-
-const MARKDOWN_INDICATORS: RegExp[] = [
-  /^#{1,6}\s/m,
-  /\*\*/,
-  /^- /m,
-  /^\* /m,
-  /`/,
-  /^\|/m,
-];
+// Pattern list is sourced from the shared formatters module to
+// reduce drift in preflight detection; full alignment with
+// outputRouter.formatForSms will happen once OR-3 / issue #25
+// migrates SMS formatting there to the shared patterns. See audit
+// finding PF-15 + Pattern 7.
 
 function checkSmsFormatViolation(
   input: PreflightInput,
@@ -291,7 +288,7 @@ function checkSmsFormatViolation(
 ): void {
   if (input.event.metadata.channel !== 'sms') return;
 
-  const hasMarkdown = MARKDOWN_INDICATORS.some(p =>
+  const hasMarkdown = SMS_MARKDOWN_PATTERNS.some(p =>
     p.test(input.responseText)
   );
 

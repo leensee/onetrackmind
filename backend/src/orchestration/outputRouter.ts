@@ -112,6 +112,9 @@ export class OutputRouterError extends Error {
 
 export function formatForSms(text: string): string[] {
   // Step 1: Strip markdown
+  // TODO(OR-3, issue #25): replace the regex list below with
+  // SMS_MARKDOWN_PATTERNS from './formatters' so detection (preflight
+  // Rule 6) and removal (this function) share one source of truth.
   const stripped = text
     .replace(/^#{1,6}\s+/gm, '')       // headers
     .replace(/\*\*/g, '')               // bold

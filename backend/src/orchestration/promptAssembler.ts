@@ -13,6 +13,11 @@ import {
   ContextWindowConfig,
 } from './types';
 import { estimateTokens, estimateMessagesTokens } from './tokenUtils';
+import {
+  formatActiveFlags,
+  formatOpenItems,
+  formatConsistContext,
+} from './formatters';
 
 // __dirname is available natively in CJS — no computation required.
 // Two levels up from src/orchestration/ → backend/
@@ -41,26 +46,17 @@ function buildContextBlock(input: AssemblerInput): string {
 
   if (contextualData.activeFlags.length > 0) {
     lines.push('ACTIVE FLAGS:');
-    for (const flag of contextualData.activeFlags) {
-      lines.push(`  [${flag.type.toUpperCase()}] ${flag.content}`);
-    }
+    lines.push(formatActiveFlags(contextualData.activeFlags));
   }
 
   if (contextualData.openItems.length > 0) {
     lines.push('OPEN ITEMS:');
-    for (const item of contextualData.openItems) {
-      const pushLabel = item.isPush ? ' [PUSH]' : '';
-      lines.push(`  [${item.category}${pushLabel}] ${item.content}`);
-    }
+    lines.push(formatOpenItems(contextualData.openItems));
   }
 
   if (contextualData.consistContext) {
-    const { consistId, relevantMachines } = contextualData.consistContext;
-    lines.push(`CONSIST CONTEXT (${consistId}):`);
-    for (const machine of relevantMachines) {
-      const serial = machine.serialNumber ? ` — SN: ${machine.serialNumber}` : '';
-      lines.push(`  Pos ${machine.position}: ${machine.name}${serial}`);
-    }
+    lines.push(`CONSIST CONTEXT (${contextualData.consistContext.consistId}):`);
+    lines.push(formatConsistContext(contextualData.consistContext));
   }
 
   if (lines.length === 0) return '';
