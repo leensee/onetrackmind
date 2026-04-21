@@ -57,7 +57,7 @@ for full finding detail. Stop after Section 1 and await approval.
 | 1 | #3 | TYU-4, TYU-5 | `backend/src/orchestration/typeUtils.ts` | none | ✅ Committed |
 | 2 | #4 | OT-4, OT-5 | `backend/src/orchestration/orchestratorTools.ts`, `backend/src/orchestration/tools/poSequence.ts` (new) | none | ✅ Committed |
 | 3 | #5 | SP-6, SP-7, CL-5, CL-6, CL-7, CL-8 | `sessionPersistence.ts`, `contextLoader.ts` | needs #1 | ✅ Committed |
-| 4 | #6 | CD-1, T-5 | `commsDrafter.ts`, `types.ts` | none | ⬜ TODO |
+| 4 | #6 | CD-1, T-5, CD-5 | `commsDrafter.ts`, `types.ts`, `commsDrafter.test.ts` | none | ✅ Committed |
 | 5 | #7 | OT-9, PA-8, MA-5, PF-15 | `src/utils/formatters.ts` (new) | none | ⬜ TODO |
 | 6 | #8 | AG-3, AG-10 | `approvalGate/pure.ts` (new), `approvalGate/index.ts` | none | ⬜ TODO |
 | 7 | #9 | AG-2, AG-4, S1-E2 | `approvalGate/`, `EditionConfig` type | needs #6 | ⬜ TODO |

@@ -10,20 +10,22 @@ import {
   TONE_LEVEL_MIN, TONE_LEVEL_MAX,
   TONE_ANCHOR_NEUTRAL, TONE_ANCHOR_PEER, TONE_ANCHOR_FORMAL,
 } from '../src/orchestration/tools/commsDrafter';
-import { CommsDraftInput } from '../src/orchestration/types';
+import {
+  CommsDraftInput, SmsDraftInput, EmailDraftInput,
+} from '../src/orchestration/types';
 
-function makeSmsInput(o: Partial<CommsDraftInput> = {}): CommsDraftInput {
+function makeSmsInput(o: Partial<SmsDraftInput> = {}): SmsDraftInput {
   return {
     channel: 'sms', recipients: ['+15550001111'],
     body: 'Shift complete. All machines secured.',
-    toneLevel: 5, sessionId: 's1', requestId: 'r1', ...o,
+    toneLevel: TONE_ANCHOR_PEER, sessionId: 's1', requestId: 'r1', ...o,
   };
 }
-function makeEmailInput(o: Partial<CommsDraftInput> = {}): CommsDraftInput {
+function makeEmailInput(o: Partial<EmailDraftInput> = {}): EmailDraftInput {
   return {
     channel: 'email', recipients: ['contact@example.com'],
     subject: 'Daily shift update', body: 'See attached summary.',
-    toneLevel: 7, sessionId: 's1', requestId: 'r1', ...o,
+    toneLevel: TONE_ANCHOR_FORMAL, sessionId: 's1', requestId: 'r1', ...o,
   };
 }
 
@@ -93,9 +95,12 @@ async function runTests(): Promise<void> {
   await test('valid email → null', () => {
     assert(validateCommsDraftInput(makeEmailInput()) === null, 'null');
   });
-  await test('invalid channel → error', () => {
+  await test('invalid channel → error (verbatim guard string)', () => {
     const r = validateCommsDraftInput(makeSmsInput({ channel: 'push' as never }));
-    assert(r !== null && r.includes('channel'), 'channel error');
+    assert(
+      r === "channel must be 'sms' or 'email'; got: push",
+      `expected verbatim channel-guard string; got: ${r}`,
+    );
   });
   await test('empty body → error', () => {
     assert(validateCommsDraftInput(makeSmsInput({ body: '' })) !== null, 'error');
@@ -139,7 +144,7 @@ async function runTests(): Promise<void> {
     if (r.ok && r.draft.channel === 'email') {
       assert(r.draft.subject === 'Daily shift update', 'subject');
       assert(r.draft.replyTo === 'me@example.com', 'replyTo');
-      assert(r.draft.toneLevel === 7, 'toneLevel');
+      assert(r.draft.toneLevel === TONE_ANCHOR_FORMAL, 'toneLevel');
     }
   });
   await test('email draft without replyTo: field absent', () => {
@@ -171,6 +176,27 @@ async function runTests(): Promise<void> {
   await test('toneLevel 10 (formal) produces valid draft', () => {
     const r = buildCommsDraft(makeSmsInput({ toneLevel: 10 }));
     assert(r.ok === true && r.draft.toneLevel === 10, 'toneLevel 10 valid');
+  });
+
+  // ── CommsDraftInput discriminated union — type narrowing ──
+
+  console.log('\n[commsDrafter] CommsDraftInput discriminated union — type narrowing');
+
+  await test('email variant exposes subject as string without assertion', () => {
+    // If the union collapses back to a flat shape, `subject` would widen to
+    // `string | undefined` and this line would require a `!` to compile.
+    const email: EmailDraftInput = makeEmailInput();
+    const len: number = email.subject.length;
+    assert(len > 0, 'subject accessible as non-optional string under EmailDraftInput');
+  });
+  await test('sms variant has no subject field at compile time', () => {
+    const input: CommsDraftInput = makeSmsInput();
+    if (input.channel === 'sms') {
+      // @ts-expect-error — SmsDraftInput has no `subject` field; if this line
+      // ever stops erroring, the discriminated union has regressed to a flat shape.
+      const shouldNotCompile: string = input.subject;
+      assert(shouldNotCompile === undefined, 'runtime: sms fixture has no subject');
+    }
   });
 
   // ── Summary ───────────────────────────────────────────────

@@ -488,16 +488,30 @@ export interface EmailDraft {
 
 export type CommsDraft = SmsDraft | EmailDraft;
 
-export interface CommsDraftInput {
-  channel:    'sms' | 'email';
+// Discriminated on `channel` — mirrors the SmsDraft / EmailDraft / CommsDraft
+// output trio above. Email-only fields (`subject`, `replyTo`) are not present
+// on the SMS variant at the type level, so callers cannot mis-route them.
+export interface SmsDraftInput {
+  channel:    'sms';
   recipients: string[];
   body:       string;
   toneLevel:  number;
-  subject?:   string;   // required for email, ignored for sms
-  replyTo?:   string;   // email only
   sessionId:  string;
   requestId:  string;
 }
+
+export interface EmailDraftInput {
+  channel:    'email';
+  recipients: string[];
+  subject:    string;   // required for email — type-enforced
+  body:       string;
+  toneLevel:  number;
+  replyTo?:   string;
+  sessionId:  string;
+  requestId:  string;
+}
+
+export type CommsDraftInput = SmsDraftInput | EmailDraftInput;
 
 // Discriminated result — same pattern as buildTodoDraft.
 export type CommsDraftResult =
