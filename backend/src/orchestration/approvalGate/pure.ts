@@ -85,10 +85,10 @@ export function buildRegenLimitMessage(
 }
 
 // ── Decision Waiter ───────────────────────────────────────────
-// Side effects are injected (EventEmitter, setTimeout); function
-// is deterministic given those injections and cleans up its own
-// listener + timer on both resolve and timeout paths.
-// timeoutMs injectable for testing.
+// The decision emitter is injected; standard timer APIs are used
+// internally. The function cleans up its own listener + timer on
+// both resolve and timeout paths.
+// timeoutMs is configurable for testing.
 
 export function waitForDecision(
   requestId:       string,
