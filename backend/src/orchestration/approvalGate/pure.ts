@@ -1,10 +1,10 @@
 // ============================================================
-// OTM Orchestration — Approval Gate (pure)
-// Side-effect-free building blocks: constants, types, the
-// ApprovalGateError class, outbound-message builders, and the
-// decision waiter. No fetch, no console, no wsSend.
+// OTM Orchestration — Approval Gate (no external I/O)
+// Building blocks: constants, types, the ApprovalGateError
+// class, outbound-message builders, and the decision waiter.
+// No fetch, no console, no wsSend; internal EventEmitter and
+// timer wiring is used by waitForDecision.
 // Paired with ./index.ts which owns real I/O.
-// ============================================================
 
 import EventEmitter from 'events';
 
