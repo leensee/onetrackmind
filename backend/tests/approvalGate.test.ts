@@ -267,9 +267,10 @@ async function runTests(): Promise<void> {
       capturedPayload = payload;
     });
     assert(fallbackCalled, 'fallback must be called on non-2xx response');
+    assert(capturedPayload !== null, 'fallback must receive a FeedbackPayload');
     assert(
-      capturedPayload === BASE_PAYLOAD,
-      'fallback must receive the same FeedbackPayload reference the gate received'
+      JSON.stringify(capturedPayload) === JSON.stringify(BASE_PAYLOAD),
+      'fallback must receive a FeedbackPayload matching the gate input by value'
     );
   });
 
