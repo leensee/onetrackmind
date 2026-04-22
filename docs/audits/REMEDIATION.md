@@ -59,7 +59,7 @@ for full finding detail. Stop after Section 1 and await approval.
 | 3 | #5 | SP-6, SP-7, CL-5, CL-6, CL-7, CL-8 | `sessionPersistence.ts`, `contextLoader.ts` | needs #1 | ✅ Committed |
 | 4 | #6 | CD-1, T-5, CD-5 | `commsDrafter.ts`, `types.ts`, `commsDrafter.test.ts` | none | ✅ Committed |
 | 5 | #7 | OT-9, PA-8, MA-5, PF-15 | `backend/src/orchestration/formatters.ts` (new) | none | ✅ Committed |
-| 6 | #8 | AG-3, AG-10 | `approvalGate/pure.ts` (new), `approvalGate/index.ts` | none | ⬜ TODO |
+| 6 | #8 | AG-3, AG-10 | `approvalGate/pure.ts` (new), `approvalGate/index.ts` | none | ✅ Committed |
 | 7 | #9 | AG-2, AG-4, S1-E2 | `approvalGate/`, `EditionConfig` type | needs #6 | ⬜ TODO |
 | 8 | #10 | MA-4, MA-5 | `buildAuditPrompt.ts`, `EditionConfig` | needs #7 | ⬜ TODO |
 | 9 | #11 | SO-3 | sheet output module | none | ⬜ TODO |
@@ -172,6 +172,7 @@ for full finding detail. Stop after Section 1 and await approval.
 | Item | Source | Owner | Target |
 |---|---|---|---|
 | Add `FCM_PAYLOAD_KEY` to `.env.example` | Phase 2 queue, acknowledged Phase 3 audit | TBD | Append to any Tier 0+1 commit or standalone |
+| Inject logger surface into orchestration modules (tracking #27) | Deferred from AG-10 during commit #6 | TBD | Phase 4 candidate — see issue #27 |
 
 ---
 

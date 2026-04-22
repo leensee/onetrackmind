@@ -1,94 +1,34 @@
 // ============================================================
-// OTM Orchestration — Approval Gate
+// OTM Orchestration — Approval Gate (impure surface + re-exports)
 // Holds output requiring explicit user action before anything
 // proceeds. Manages the hold state, surfaces pending items to
 // the user via WebSocket, receives decisions, routes accordingly.
 // Also handles regen limit surface and feedback submission.
 // WebSocket connection owned by Fastify layer — not here.
+// Owns real side effects: fetch, wsSend, console.*.
+// Paired with ./pure.ts which owns deterministic logic.
 // ============================================================
 
-import EventEmitter from 'events';
-import { FeedbackPayload } from './types';
+import { FeedbackPayload } from '../types';
+import {
+  APPROVAL_TIMEOUT_MS,
+  ApprovalDecision,
+  ApprovalGateError,
+  WsSend,
+  DecisionEmitter,
+  buildApprovalMessage,
+  buildRegenLimitMessage,
+  waitForDecision,
+} from './pure';
 
-// ── Constants ─────────────────────────────────────────────────
+// Public surface preserved for consumers importing from './approvalGate'.
+export * from './pure';
 
-export const APPROVAL_TIMEOUT_MS   = 300_000;  // 5 minutes
-export const FEEDBACK_GITHUB_REPO  = 'leensee/onetrackmind';
-export const FEEDBACK_GITHUB_URL   =
+// ── Constants (internal) ──────────────────────────────────────
+
+const FEEDBACK_GITHUB_REPO = 'leensee/onetrackmind';
+const FEEDBACK_GITHUB_URL  =
   `https://api.github.com/repos/${FEEDBACK_GITHUB_REPO}/issues`;
-
-// ── Types ─────────────────────────────────────────────────────
-
-export type ApprovalDecision =
-  | 'approve'
-  | 'reject'
-  | 'edit'
-  | 'try_again'
-  | 'use_as_is'
-  | 'drop'
-  | 'send_feedback';
-
-// WsSend — injected WebSocket send function.
-// Caller owns the connection; gate only sends.
-export type WsSend = (payload: Record<string, unknown>) => void;
-
-// DecisionEmitter — Node.js EventEmitter the Fastify WebSocket
-// handler fires with inbound client messages. Gate listens for
-// 'decision' events, matches on requestId, cleans up listener.
-export type DecisionEmitter = EventEmitter;
-
-export interface InboundDecisionEvent {
-  type:       'approval_response';
-  requestId:  string;
-  decision:   ApprovalDecision;
-}
-
-// ── Approval Gate Error ───────────────────────────────────────
-
-export class ApprovalGateError extends Error {
-  public readonly requestId: string;
-  public readonly cause: 'timeout' | 'send_error' | 'feedback_error';
-
-  constructor(
-    message:   string,
-    requestId: string,
-    cause:     'timeout' | 'send_error' | 'feedback_error'
-  ) {
-    super(message);
-    this.name      = 'ApprovalGateError';
-    this.requestId = requestId;
-    this.cause     = cause;
-  }
-}
-
-// ── Outbound Message Builders ─────────────────────────────────
-// Pure functions — exported for testing.
-
-export function buildApprovalMessage(
-  requestId: string,
-  content:   string
-): Record<string, unknown> {
-  return {
-    type:      'approval_required',
-    requestId,
-    content,
-    options:   ['approve', 'reject', 'edit'],
-  };
-}
-
-export function buildRegenLimitMessage(
-  requestId: string,
-  draft:     string,
-  auditFlag: string
-): Record<string, unknown> {
-  return {
-    type:      'regen_limit',
-    requestId,
-    draft,
-    auditFlag,
-    options:   ['try_again', 'use_as_is', 'drop', 'send_feedback'],
-  };
-}
 
 // ── Send Helpers ──────────────────────────────────────────────
 
@@ -125,60 +65,19 @@ export function sendRegenLimitMessage(
   }
 }
 
-// ── Decision Waiter ───────────────────────────────────────────
-// Listens on the DecisionEmitter for a matching inbound response.
-// Cleans up listener on resolution or timeout — no memory leaks.
-// timeoutMs injectable for testing.
-
-export function waitForDecision(
-  requestId:       string,
-  decisionEmitter: DecisionEmitter,
-  timeoutMs:       number = APPROVAL_TIMEOUT_MS
-): Promise<ApprovalDecision> {
-  return new Promise((resolve, reject) => {
-    let timeoutHandle: NodeJS.Timeout | null = null;
-
-    function onDecision(event: InboundDecisionEvent): void {
-      // Ignore events for other requests
-      if (event.requestId !== requestId) return;
-
-      cleanup();
-      resolve(event.decision);
-    }
-
-    function cleanup(): void {
-      decisionEmitter.off('decision', onDecision);
-      if (timeoutHandle !== null) {
-        clearTimeout(timeoutHandle);
-        timeoutHandle = null;
-      }
-    }
-
-    timeoutHandle = setTimeout(() => {
-      cleanup();
-      reject(new ApprovalGateError(
-        `Approval gate timed out after ${timeoutMs}ms — item queued for next session open`,
-        requestId,
-        'timeout'
-      ));
-    }, timeoutMs);
-
-    decisionEmitter.on('decision', onDecision);
-  });
-}
-
 // ── Feedback Submitter ────────────────────────────────────────
 // Posts to GitHub Issues API. Falls back to fallbackEmailFn
 // if provided. Logs locally if both fail.
 // Uses fetch (Node 18+ built-in) — no new HTTP dependency.
 // token: GITHUB_FEEDBACK_TOKEN from environment (injected by caller).
 // fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
-// know which email provider is in use.
+// know which email provider is in use. Receives the full FeedbackPayload
+// so the caller doesn't have to reconstruct or re-serialize it.
 
 export async function submitFeedback(
   payload:          FeedbackPayload,
   token:            string | undefined,
-  fallbackEmailFn?: () => Promise<void>
+  fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>
 ): Promise<void> {
   // No token — skip GitHub entirely, route directly to fallback.
   // Orchestrator passes env.githubFeedbackToken here; undefined is valid
@@ -190,7 +89,7 @@ export async function submitFeedback(
     );
     if (fallbackEmailFn) {
       try {
-        await fallbackEmailFn();
+        await fallbackEmailFn(payload);
         console.info(
           `[ApprovalGate] feedback submitted via email fallback (no token) ` +
           `sessionId=${payload.sessionId}`
@@ -250,7 +149,7 @@ export async function submitFeedback(
 
     if (fallbackEmailFn) {
       try {
-        await fallbackEmailFn();
+        await fallbackEmailFn(payload);
         console.info(
           `[ApprovalGate] feedback submitted via email fallback sessionId=${payload.sessionId}`
         );
