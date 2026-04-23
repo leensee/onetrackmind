@@ -132,9 +132,17 @@ export async function submitFeedback(
     );
   }
 
+  if (!github.titleFormat.includes('{sessionId}')) {
+    throw new ApprovalGateError(
+      `Feedback submission failed — titleFormat must contain '{sessionId}' placeholder (got: '${github.titleFormat}')`,
+      payload.sessionId,
+      'feedback_error'
+    );
+  }
+
   const issueUrl = `https://api.github.com/repos/${github.repo}/issues`;
   const issueBody = {
-    title:  github.titleFormat.replace('{sessionId}', payload.sessionId),
+    title:  github.titleFormat.replaceAll('{sessionId}', payload.sessionId),
     body:   JSON.stringify(payload, null, 2),
     labels: ['audit-failure', 'regen-limit-reached'],
   };

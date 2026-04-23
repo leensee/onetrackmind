@@ -451,6 +451,37 @@ async function runTests(): Promise<void> {
     );
   });
 
+  await test('submitFeedback: throws feedback_error when titleFormat is missing {sessionId} placeholder', async () => {
+    (global as unknown as { fetch: unknown }).fetch = async () => {
+      throw new Error('fetch must not be called when titleFormat is invalid');
+    };
+    const err = await assertRejects(
+      () => submitFeedback(BASE_PAYLOAD, 'test-token', {
+        github: { repo: TEST_REPO, titleFormat: '[audit-failure] session-MISSING' },
+      }),
+      'ApprovalGateError',
+      'must throw ApprovalGateError when titleFormat lacks {sessionId}'
+    );
+    assert(err.cause === 'feedback_error', `cause must be feedback_error, got ${err.cause}`);
+    assert(err.requestId === SESSION_ID, 'must carry sessionId as requestId');
+  });
+
+  await test('submitFeedback: replaces all occurrences of {sessionId} in titleFormat', async () => {
+    let capturedBody: unknown = null;
+    (global as unknown as { fetch: unknown }).fetch = async (_url: string, opts: RequestInit) => {
+      capturedBody = JSON.parse(opts.body as string);
+      return { ok: true, status: 201, statusText: 'Created' };
+    };
+    await submitFeedback(BASE_PAYLOAD, 'test-token', {
+      github: { repo: TEST_REPO, titleFormat: '[{sessionId}] duplicate-{sessionId}' },
+    });
+    const body = capturedBody as { title: string };
+    assert(
+      body.title === `[${SESSION_ID}] duplicate-${SESSION_ID}`,
+      `all occurrences must be substituted, got ${body.title}`
+    );
+  });
+
   // ── runApprovalGate ───────────────────────────────────────
   await test('runApprovalGate: sends message and returns decision', async () => {
     const emitter = new EventEmitter();
