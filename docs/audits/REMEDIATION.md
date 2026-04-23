@@ -61,7 +61,7 @@ for full finding detail. Stop after Section 1 and await approval.
 | 5 | #7 | OT-9, PA-8, MA-5, PF-15 | `backend/src/orchestration/formatters.ts` (new) | none | ✅ Committed |
 | 6 | #8 | AG-3, AG-10 | `approvalGate/pure.ts` (new), `approvalGate/index.ts` | none | ✅ Committed |
 | 7 | #9 | AG-2, AG-4, S1-E2 | `approvalGate/`, `outputRouter.ts`, `EditionConfig` type | needs #6 | ✅ Committed |
-| 8 | #10 | MA-4, MA-5 | `buildAuditPrompt.ts`, `EditionConfig` | needs #7 | ⬜ TODO |
+| 8 | #10 | MA-4, MA-5 | `modelAudit.ts`, `promptAssembler.ts`, `configLoader.ts` (new), `model-audit-prompt.ts` (new), `EditionConfig` | needs #7 | ✅ Committed |
 | 9 | #11 | SO-3 | sheet output module | none | ⬜ TODO |
 | 10 | #12 | PF-6, PF-7 | `preflight.ts`, orchestrator state | needs #7 | ⬜ TODO |
 
