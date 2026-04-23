@@ -346,6 +346,7 @@ async function runTests(): Promise<void> {
     }
     assert(threw, 'must throw when prompt path does not resolve');
     assert(message.includes('src/config/does-not-exist'), 'error message must name the path');
+    assert(message.includes('MODEL_AUDIT_PROMPT'), 'error message must name the export');
   });
 
   await test('runModelAudit: loader path + export name resolve to the same string as the module import (anti-drift)', () => {

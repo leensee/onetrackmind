@@ -43,7 +43,7 @@ function getCandidateModulePaths(configPath: string): string[] {
   return candidates;
 }
 
-function requireConfigModule(configPath: string): unknown {
+function requireConfigModule(configPath: string, exportName: string): unknown {
   const candidatePaths = getCandidateModulePaths(configPath);
   let lastError: Error | undefined;
 
@@ -57,12 +57,12 @@ function requireConfigModule(configPath: string): unknown {
   }
 
   throw new Error(
-    `Failed to load config module at '${configPath}': ${lastError?.message ?? 'Unknown error'}`
+    `Failed to load config module at '${configPath}' (export '${exportName}'): ${lastError?.message ?? 'Unknown error'}`
   );
 }
 
 export function loadStringExport(configPath: string, exportName: string): string {
-  const mod = requireConfigModule(configPath);
+  const mod = requireConfigModule(configPath, exportName);
   if (typeof mod !== 'object' || mod === null) {
     throw new Error(
       `Config module at '${configPath}' did not export an object.`
