@@ -17,6 +17,7 @@ import {
 const baseEditionConfig: EditionConfig = {
   editionId: 'otm-v1-mechanic',
   systemPromptPath: 'src/config/system-prompt.v1.0',
+  modelAuditPromptPath: 'src/config/model-audit-prompt',
   styleProfileTable: 'style_observations',
   contextFields: {
     includeActiveFlags: true,

@@ -9,6 +9,7 @@
 export interface EditionConfig {
   editionId: string;
   systemPromptPath: string;
+  modelAuditPromptPath: string;
   styleProfileTable: string;
   contextFields: ContextFieldConfig;
   contextWindowConfig?: ContextWindowConfig;
