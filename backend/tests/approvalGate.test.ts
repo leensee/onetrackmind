@@ -261,10 +261,17 @@ async function runTests(): Promise<void> {
     });
 
     let fallbackCalled = false;
-    await submitFeedback(BASE_PAYLOAD, 'test-token', async () => {
+    let capturedPayload: FeedbackPayload | null = null;
+    await submitFeedback(BASE_PAYLOAD, 'test-token', async (payload) => {
       fallbackCalled = true;
+      capturedPayload = payload;
     });
     assert(fallbackCalled, 'fallback must be called on non-2xx response');
+    assert(capturedPayload !== null, 'fallback must receive a FeedbackPayload');
+    assert(
+      JSON.stringify(capturedPayload) === JSON.stringify(BASE_PAYLOAD),
+      'fallback must receive a FeedbackPayload matching the gate input by value'
+    );
   });
 
   await test('submitFeedback: throws ApprovalGateError when both GitHub and email fail', async () => {
@@ -299,10 +306,47 @@ async function runTests(): Promise<void> {
       throw new Error('fetch must not be called when token is undefined');
     };
     let fallbackCalled = false;
-    await submitFeedback(BASE_PAYLOAD, undefined, async () => {
+    let capturedPayload: FeedbackPayload | null = null;
+    await submitFeedback(BASE_PAYLOAD, undefined, async (payload) => {
       fallbackCalled = true;
+      capturedPayload = payload;
     });
     assert(fallbackCalled, 'fallback must be called when token is undefined');
+    assert(
+      capturedPayload === BASE_PAYLOAD,
+      'fallback must receive the same FeedbackPayload reference on the no-token path'
+    );
+  });
+
+  await test('submitFeedback: fallback receives a complete FeedbackPayload with all required fields', async () => {
+    (global as unknown as { fetch: unknown }).fetch = async () => {
+      throw new Error('fetch must not be called when token is undefined');
+    };
+    let capturedPayload: FeedbackPayload | null = null;
+    await submitFeedback(BASE_PAYLOAD, undefined, async (payload) => {
+      capturedPayload = payload;
+    });
+    assert(capturedPayload !== null, 'fallback must be invoked');
+    const p = capturedPayload as unknown as FeedbackPayload;
+    assert(typeof p.sessionId === 'string' && p.sessionId.length > 0, 'sessionId required');
+    assert(typeof p.timestamp === 'string' && p.timestamp.length > 0, 'timestamp required');
+    assert(typeof p.eventType === 'string', 'eventType required');
+    assert(typeof p.initialInput === 'string', 'initialInput required');
+    assert(Array.isArray(p.attempts), 'attempts required (array)');
+    assert(Array.isArray(p.manualRegens), 'manualRegens required (array)');
+    assert(typeof p.userAction === 'string', 'userAction required');
+    assert(
+      p.sessionContextSnapshot !== null && typeof p.sessionContextSnapshot === 'object',
+      'sessionContextSnapshot required'
+    );
+    assert(
+      Array.isArray(p.sessionContextSnapshot.activeFlags),
+      'sessionContextSnapshot.activeFlags required (array)'
+    );
+    assert(
+      Array.isArray(p.sessionContextSnapshot.openItems),
+      'sessionContextSnapshot.openItems required (array)'
+    );
   });
 
   await test('submitFeedback: throws feedback_error when token is undefined and no fallback', async () => {
