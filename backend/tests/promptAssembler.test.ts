@@ -23,6 +23,8 @@ const baseEditionConfig: EditionConfig = {
     includeOpenItems: true,
     includeConsistContext: true,
   },
+  productName: 'OneTrackMind',
+  feedbackIssueTitleFormat: '[audit-failure] {sessionId}',
 };
 
 const baseEvent: ProcessedEvent = {

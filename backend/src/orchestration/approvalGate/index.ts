@@ -24,12 +24,6 @@ import {
 // Public surface preserved for consumers importing from './approvalGate'.
 export * from './pure';
 
-// ── Constants (internal) ──────────────────────────────────────
-
-const FEEDBACK_GITHUB_REPO = 'leensee/onetrackmind';
-const FEEDBACK_GITHUB_URL  =
-  `https://api.github.com/repos/${FEEDBACK_GITHUB_REPO}/issues`;
-
 // ── Send Helpers ──────────────────────────────────────────────
 
 export function sendApprovalRequest(
@@ -70,15 +64,30 @@ export function sendRegenLimitMessage(
 // if provided. Logs locally if both fail.
 // Uses fetch (Node 18+ built-in) — no new HTTP dependency.
 // token: GITHUB_FEEDBACK_TOKEN from environment (injected by caller).
-// fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
+// options.github: edition-specific GitHub fields (repo, titleFormat).
+//   Required when token is present; ignored (and not required) when absent.
+//   repo: from AuditConfig.githubRepo; titleFormat: from EditionConfig.feedbackIssueTitleFormat.
+// options.fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
 // know which email provider is in use. Receives the full FeedbackPayload
 // so the caller doesn't have to reconstruct or re-serialize it.
+// Callers that only use email fallback (no token, no GitHub) need not
+// supply options.github at all.
+
+export interface FeedbackSubmitOptions {
+  github?: {
+    repo:        string;
+    titleFormat: string;
+  };
+  fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>;
+}
 
 export async function submitFeedback(
-  payload:          FeedbackPayload,
-  token:            string | undefined,
-  fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>
+  payload: FeedbackPayload,
+  token:   string | undefined,
+  options: FeedbackSubmitOptions
 ): Promise<void> {
+  const { github, fallbackEmailFn } = options;
+
   // No token — skip GitHub entirely, route directly to fallback.
   // Orchestrator passes env.githubFeedbackToken here; undefined is valid
   // pre-Phase 4 and the gate owns this path — no orchestrator decision needed.
@@ -115,8 +124,25 @@ export async function submitFeedback(
     );
   }
 
+  if (!github) {
+    throw new ApprovalGateError(
+      'Feedback submission failed — options.github (repo and titleFormat) is required when a token is provided',
+      payload.sessionId,
+      'feedback_error'
+    );
+  }
+
+  if (!github.titleFormat.includes('{sessionId}')) {
+    throw new ApprovalGateError(
+      `Feedback submission failed — titleFormat must contain '{sessionId}' placeholder (got: '${github.titleFormat}')`,
+      payload.sessionId,
+      'feedback_error'
+    );
+  }
+
+  const issueUrl = `https://api.github.com/repos/${github.repo}/issues`;
   const issueBody = {
-    title:  `[audit-failure] ${payload.sessionId}`,
+    title:  github.titleFormat.replaceAll('{sessionId}', payload.sessionId),
     body:   JSON.stringify(payload, null, 2),
     labels: ['audit-failure', 'regen-limit-reached'],
   };
@@ -124,7 +150,7 @@ export async function submitFeedback(
   let githubSucceeded = false;
 
   try {
-    const response = await fetch(FEEDBACK_GITHUB_URL, {
+    const response = await fetch(issueUrl, {
       method:  'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
