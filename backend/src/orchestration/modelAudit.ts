@@ -37,13 +37,13 @@ export const MODEL_AUDIT_TIMEOUT_MS  = 30_000;
 export class ModelAuditError extends Error {
   public readonly sessionId: string;
   public readonly requestId: string;
-  public readonly cause:     'timeout' | 'api_error' | 'invalid_json';
+  public readonly cause:     'timeout' | 'api_error' | 'invalid_json' | 'config_error';
 
   constructor(
     message:   string,
     sessionId: string,
     requestId: string,
-    cause:     'timeout' | 'api_error' | 'invalid_json'
+    cause:     'timeout' | 'api_error' | 'invalid_json' | 'config_error'
   ) {
     super(message);
     this.name      = 'ModelAuditError';
@@ -199,8 +199,24 @@ export async function runModelAudit(
     `[ModelAudit] start requestId=${requestId} sessionId=${sessionId} model=${MODEL_AUDIT_MODEL}`
   );
 
-  const auditPrompt = loadStringExport(modelAuditPromptPath, 'MODEL_AUDIT_PROMPT');
   const userPrompt  = buildAuditPrompt(input);
+
+  let auditPrompt: string;
+  try {
+    auditPrompt = loadStringExport(modelAuditPromptPath, 'MODEL_AUDIT_PROMPT');
+  } catch (configErr) {
+    const error = configErr as Error;
+    console.error(
+      `[ModelAudit] error requestId=${requestId} sessionId=${sessionId} ` +
+      `cause=config_error message=${sanitizeErrorMessage(error.message)}`
+    );
+    throw new ModelAuditError(
+      `Config error: ${error.message}`,
+      sessionId,
+      requestId,
+      'config_error'
+    );
+  }
 
   let timeoutHandle: NodeJS.Timeout | null = null;
 

@@ -338,13 +338,19 @@ async function runTests(): Promise<void> {
     const client = makeMockClient({});
     let threw = false;
     let message = '';
+    let cause: string | undefined;
+    let isModelAuditError = false;
     try {
       await runModelAudit(BASE_AUDIT_INPUT, client, 'src/config/does-not-exist');
     } catch (err) {
       threw = true;
       message = (err as Error).message;
+      isModelAuditError = err instanceof ModelAuditError;
+      cause = isModelAuditError ? (err as ModelAuditError).cause : undefined;
     }
     assert(threw, 'must throw when prompt path does not resolve');
+    assert(isModelAuditError, 'thrown error must be a ModelAuditError');
+    assert(cause === 'config_error', `cause must be config_error — got: ${cause}`);
     assert(message.includes('src/config/does-not-exist'), 'error message must name the path');
     assert(message.includes('MODEL_AUDIT_PROMPT'), 'error message must name the export');
   });
