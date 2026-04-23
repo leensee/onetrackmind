@@ -81,6 +81,7 @@ export interface RouterClients {
   smsSend?:      SmsSend;
   pushSend?:     PushSend;
   fcmPayloadKey?: string;   // injected from FCM_PAYLOAD_KEY env var by orchestrator
+  productName:   string;    // injected from EditionConfig.productName (FCM notification title)
 }
 
 // ── Output Router Error ───────────────────────────────────────
@@ -168,6 +169,7 @@ export function formatForSms(text: string): string[] {
 export function formatForPush(
   text:          string,
   sessionId:     string,
+  productName:   string,
   fcmPayloadKey?: string
 ): Record<string, unknown> {
   let encryptedContent: EncryptedContent | undefined;
@@ -197,7 +199,7 @@ export function formatForPush(
 
   return {
     notification: {
-      title: 'OneTrackMind',
+      title: productName,
       body:  text.substring(0, PUSH_BODY_MAX_CHARS),
     },
     data,
@@ -287,6 +289,7 @@ export async function routeToPush(
   responseText: string,
   instruction:  RouteInstruction,
   pushSend:     PushSend,
+  productName:  string,
   fcmPayloadKey?: string
 ): Promise<RouteResult> {
   const { recipients, requestId } = instruction;
@@ -300,7 +303,7 @@ export async function routeToPush(
     );
   }
 
-  const payload  = formatForPush(responseText, instruction.sessionId, fcmPayloadKey);
+  const payload  = formatForPush(responseText, instruction.sessionId, productName, fcmPayloadKey);
   const delivered: string[] = [];
   const failed: FailedRecipient[] = [];
 
@@ -375,7 +378,9 @@ export async function routeOutput(
           requestId, 'push', 'delivery_error'
         );
       }
-      return routeToPush(responseText, instruction, clients.pushSend, clients.fcmPayloadKey);
+      return routeToPush(
+        responseText, instruction, clients.pushSend, clients.productName, clients.fcmPayloadKey
+      );
     }
 
     case 'log':

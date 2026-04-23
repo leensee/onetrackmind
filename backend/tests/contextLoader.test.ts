@@ -139,6 +139,8 @@ const BASE_EDITION_CONFIG: EditionConfig = {
     includeOpenItems:      true,
     includeConsistContext: true,
   },
+  productName:              'OneTrackMind',
+  feedbackIssueTitleFormat: '[audit-failure] {sessionId}',
 };
 
 // ── Test Runner ───────────────────────────────────────────────

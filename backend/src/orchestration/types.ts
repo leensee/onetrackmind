@@ -13,6 +13,8 @@ export interface EditionConfig {
   contextFields: ContextFieldConfig;
   contextWindowConfig?: ContextWindowConfig;
   auditConfig?: AuditConfig;
+  productName: string;
+  feedbackIssueTitleFormat: string;
 }
 
 export interface ContextFieldConfig {

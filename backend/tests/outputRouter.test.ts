@@ -30,6 +30,8 @@ const BASE_INSTRUCTION: RouteInstruction = {
   requestId:  'req-001',
 };
 
+const TEST_PRODUCT_NAME = 'OneTrackMind';
+
 const SHORT_TEXT = 'PM interval for the 6700 is 250 hours per the service manual.';
 
 const MARKDOWN_TEXT =
@@ -151,17 +153,17 @@ async function runTests(): Promise<void> {
   const INVALID_TEST_KEY = 'not-a-valid-hex-key';
 
   test('formatForPush: no key — encryptedContent omitted, notification fires', () => {
-    const result = formatForPush(SHORT_TEXT, 'session-001');
+    const result = formatForPush(SHORT_TEXT, 'session-001', TEST_PRODUCT_NAME);
     const notif  = result['notification'] as { title: string; body: string };
     const data   = result['data']         as Record<string, unknown>;
-    assert(notif.title === 'OneTrackMind', 'title must be OneTrackMind');
+    assert(notif.title === TEST_PRODUCT_NAME, 'title must match injected productName');
     assert(typeof notif.body === 'string' && notif.body.length > 0, 'body must be non-empty string');
     assert(data['sessionId'] === 'session-001', 'sessionId must be in data');
     assert(!('encryptedContent' in data), 'encryptedContent must be omitted when no key provided');
   });
 
   test('formatForPush: valid key — encryptedContent present with iv, authTag, ciphertext', () => {
-    const result = formatForPush(SHORT_TEXT, 'session-001', VALID_TEST_KEY);
+    const result = formatForPush(SHORT_TEXT, 'session-001', TEST_PRODUCT_NAME, VALID_TEST_KEY);
     const data   = result['data'] as Record<string, unknown>;
     assert('encryptedContent' in data, 'encryptedContent must be present when valid key provided');
     const enc = data['encryptedContent'] as { iv: string; authTag: string; ciphertext: string };
@@ -177,10 +179,10 @@ async function runTests(): Promise<void> {
     const origErr = console.error;
     console.error = () => { /* swallow expected failure log */ };
     try {
-      const result = formatForPush(SHORT_TEXT, 'session-001', INVALID_TEST_KEY);
+      const result = formatForPush(SHORT_TEXT, 'session-001', TEST_PRODUCT_NAME, INVALID_TEST_KEY);
       const notif  = result['notification'] as { title: string; body: string };
       const data   = result['data']         as Record<string, unknown>;
-      assert(notif.title === 'OneTrackMind', 'notification must still fire on key failure');
+      assert(notif.title === TEST_PRODUCT_NAME, 'notification must still fire on key failure');
       assert(data['sessionId'] === 'session-001', 'sessionId must be present on key failure');
       assert(!('encryptedContent' in data), 'encryptedContent must be omitted on key failure');
     } finally {
@@ -190,12 +192,19 @@ async function runTests(): Promise<void> {
 
   test('formatForPush: body truncated to PUSH_BODY_MAX_CHARS', () => {
     const longText = 'X'.repeat(PUSH_BODY_MAX_CHARS + 100);
-    const result   = formatForPush(longText, 'session-001');
+    const result   = formatForPush(longText, 'session-001', TEST_PRODUCT_NAME);
     const notif    = result['notification'] as { body: string };
     assert(
       notif.body.length <= PUSH_BODY_MAX_CHARS,
       `push body must be ≤ ${PUSH_BODY_MAX_CHARS} chars`
     );
+  });
+
+  test('formatForPush: uses injected productName as notification title (S1-E2)', () => {
+    const result = formatForPush(SHORT_TEXT, 'session-001', 'SupervisorEdition');
+    const notif  = result['notification'] as { title: string };
+    assert(notif.title === 'SupervisorEdition', 'title must match injected productName');
+    assert(notif.title !== 'OneTrackMind', 'title must not retain OTM v1 literal when different name injected');
   });
   
   // ── routeToApp ────────────────────────────────────────────
@@ -281,7 +290,7 @@ async function runTests(): Promise<void> {
     const instruction: RouteInstruction = {
       ...BASE_INSTRUCTION, channel: 'push', recipients: ['fcm-token-abc'],
     };
-    const result = await routeToPush(SHORT_TEXT, instruction, mockSend);
+    const result = await routeToPush(SHORT_TEXT, instruction, mockSend, TEST_PRODUCT_NAME);
     assert(result.success === true, 'must be success');
     assert(result.delivered.includes('fcm-token-abc'), 'token in delivered');
     assert(result.segmentCount === 1, 'push is always 1 segment');
@@ -293,7 +302,7 @@ async function runTests(): Promise<void> {
       ...BASE_INSTRUCTION, channel: 'push', recipients: [],
     };
     const err = await assertRejects(
-      () => routeToPush(SHORT_TEXT, instruction, mockSend),
+      () => routeToPush(SHORT_TEXT, instruction, mockSend, TEST_PRODUCT_NAME),
       'OutputRouterError',
       'must throw on empty recipients'
     );
@@ -314,7 +323,10 @@ async function runTests(): Promise<void> {
 
   await test('routeOutput: routes to correct channel on instruction', async () => {
     const mockSend: AppWsSend = async () => { /* success */ };
-    const result = await routeOutput(SHORT_TEXT, BASE_INSTRUCTION, { appWsSend: mockSend });
+    const result = await routeOutput(SHORT_TEXT, BASE_INSTRUCTION, {
+      appWsSend:   mockSend,
+      productName: TEST_PRODUCT_NAME,
+    });
     assert(result.channel === 'app', 'must route to app channel');
     assert(result.success === true, 'must succeed');
   });
@@ -324,7 +336,7 @@ async function runTests(): Promise<void> {
       ...BASE_INSTRUCTION, channel: 'sms', recipients: ['+13125550100'],
     };
     const err = await assertRejects(
-      () => routeOutput(SHORT_TEXT, smsInstruction, {}),
+      () => routeOutput(SHORT_TEXT, smsInstruction, { productName: TEST_PRODUCT_NAME }),
       'OutputRouterError',
       'must throw when smsSend client missing'
     );

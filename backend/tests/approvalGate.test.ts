@@ -13,6 +13,7 @@ import {
   sendRegenLimitMessage,
   waitForDecision,
   submitFeedback,
+  FeedbackSubmitOptions,
   runApprovalGate,
   ApprovalGateError,
   InboundDecisionEvent,
@@ -24,6 +25,8 @@ import { FeedbackPayload } from '../src/orchestration/types';
 
 const REQ_ID = 'req-001';
 const SESSION_ID = 'session-001';
+const TEST_REPO = 'test-org/test-repo';
+const TEST_TITLE_FORMAT = '[test-audit] {sessionId}';
 
 const BASE_PAYLOAD: FeedbackPayload = {
   sessionId:    SESSION_ID,
@@ -37,6 +40,11 @@ const BASE_PAYLOAD: FeedbackPayload = {
     activeFlags: [],
     openItems:   [],
   },
+};
+
+const BASE_OPTIONS: FeedbackSubmitOptions = {
+  githubRepo:  TEST_REPO,
+  titleFormat: TEST_TITLE_FORMAT,
 };
 
 // ── Test Runner ───────────────────────────────────────────────
@@ -243,9 +251,10 @@ async function runTests(): Promise<void> {
     };
     (global as unknown as { fetch: unknown }).fetch = mockFetch;
 
-    await submitFeedback(BASE_PAYLOAD, 'test-token');
+    await submitFeedback(BASE_PAYLOAD, 'test-token', BASE_OPTIONS);
 
-    assert(capturedUrl.includes('leensee/onetrackmind'), 'must post to correct repo');
+    assert(capturedUrl.includes(TEST_REPO), 'must post to injected repo');
+    assert(!capturedUrl.includes('leensee/onetrackmind'), 'must not retain OTM v1 literal');
     assert(
       capturedHeaders['Authorization'] === 'Bearer test-token',
       'must include auth header'
@@ -262,9 +271,12 @@ async function runTests(): Promise<void> {
 
     let fallbackCalled = false;
     let capturedPayload: FeedbackPayload | null = null;
-    await submitFeedback(BASE_PAYLOAD, 'test-token', async (payload) => {
-      fallbackCalled = true;
-      capturedPayload = payload;
+    await submitFeedback(BASE_PAYLOAD, 'test-token', {
+      ...BASE_OPTIONS,
+      fallbackEmailFn: async (payload) => {
+        fallbackCalled = true;
+        capturedPayload = payload;
+      },
     });
     assert(fallbackCalled, 'fallback must be called on non-2xx response');
     assert(capturedPayload !== null, 'fallback must receive a FeedbackPayload');
@@ -280,8 +292,11 @@ async function runTests(): Promise<void> {
     };
 
     const err = await assertRejects(
-      () => submitFeedback(BASE_PAYLOAD, 'test-token', async () => {
-        throw new Error('email also failed');
+      () => submitFeedback(BASE_PAYLOAD, 'test-token', {
+        ...BASE_OPTIONS,
+        fallbackEmailFn: async () => {
+          throw new Error('email also failed');
+        },
       }),
       'ApprovalGateError',
       'must throw when all channels fail'
@@ -294,7 +309,7 @@ async function runTests(): Promise<void> {
       ok: true, status: 201, statusText: 'Created',
     });
     // Should not throw
-    await submitFeedback(BASE_PAYLOAD, 'test-token');
+    await submitFeedback(BASE_PAYLOAD, 'test-token', BASE_OPTIONS);
     assert(true, 'must not throw on success');
   });
 
@@ -307,9 +322,12 @@ async function runTests(): Promise<void> {
     };
     let fallbackCalled = false;
     let capturedPayload: FeedbackPayload | null = null;
-    await submitFeedback(BASE_PAYLOAD, undefined, async (payload) => {
-      fallbackCalled = true;
-      capturedPayload = payload;
+    await submitFeedback(BASE_PAYLOAD, undefined, {
+      ...BASE_OPTIONS,
+      fallbackEmailFn: async (payload) => {
+        fallbackCalled = true;
+        capturedPayload = payload;
+      },
     });
     assert(fallbackCalled, 'fallback must be called when token is undefined');
     assert(
@@ -323,8 +341,11 @@ async function runTests(): Promise<void> {
       throw new Error('fetch must not be called when token is undefined');
     };
     let capturedPayload: FeedbackPayload | null = null;
-    await submitFeedback(BASE_PAYLOAD, undefined, async (payload) => {
-      capturedPayload = payload;
+    await submitFeedback(BASE_PAYLOAD, undefined, {
+      ...BASE_OPTIONS,
+      fallbackEmailFn: async (payload) => {
+        capturedPayload = payload;
+      },
     });
     assert(capturedPayload !== null, 'fallback must be invoked');
     const p = capturedPayload as unknown as FeedbackPayload;
@@ -354,7 +375,7 @@ async function runTests(): Promise<void> {
       throw new Error('fetch must not be called when token is undefined');
     };
     const err = await assertRejects(
-      () => submitFeedback(BASE_PAYLOAD, undefined),
+      () => submitFeedback(BASE_PAYLOAD, undefined, BASE_OPTIONS),
       'ApprovalGateError',
       'must throw ApprovalGateError when no token and no fallback'
     );
@@ -367,13 +388,54 @@ async function runTests(): Promise<void> {
       throw new Error('fetch must not be called when token is undefined');
     };
     const err = await assertRejects(
-      () => submitFeedback(BASE_PAYLOAD, undefined, async () => {
-        throw new Error('email also failed');
+      () => submitFeedback(BASE_PAYLOAD, undefined, {
+        ...BASE_OPTIONS,
+        fallbackEmailFn: async () => {
+          throw new Error('email also failed');
+        },
       }),
       'ApprovalGateError',
       'must throw when token absent and fallback fails'
     );
     assert(err.cause === 'feedback_error', `cause must be feedback_error, got ${err.cause}`);
+  });
+
+  // ── submitFeedback injection tests (AG-2, AG-4) ──────────────
+  await test('submitFeedback: uses injected githubRepo in API URL', async () => {
+    let capturedUrl = '';
+    (global as unknown as { fetch: unknown }).fetch = async (url: string) => {
+      capturedUrl = url;
+      return { ok: true, status: 201, statusText: 'Created' };
+    };
+    await submitFeedback(BASE_PAYLOAD, 'test-token', {
+      githubRepo:  'other-org/other-edition',
+      titleFormat: '[x] {sessionId}',
+    });
+    assert(
+      capturedUrl.includes('other-org/other-edition'),
+      'must post to injected repo'
+    );
+    assert(
+      !capturedUrl.includes('leensee/onetrackmind'),
+      'must not contain OTM v1 literal when a different repo is injected'
+    );
+  });
+
+  await test('submitFeedback: uses injected titleFormat with sessionId substitution', async () => {
+    let capturedBody: unknown = null;
+    (global as unknown as { fetch: unknown }).fetch = async (_url: string, opts: RequestInit) => {
+      capturedBody = JSON.parse(opts.body as string);
+      return { ok: true, status: 201, statusText: 'Created' };
+    };
+    await submitFeedback(BASE_PAYLOAD, 'test-token', {
+      githubRepo:  TEST_REPO,
+      titleFormat: '[audit-{sessionId}]-flagged',
+    });
+    const body = capturedBody as { title: string };
+    assert(
+      body.title === `[audit-${SESSION_ID}]-flagged`,
+      `title must be substituted, got ${body.title}`
+    );
   });
 
   // ── runApprovalGate ───────────────────────────────────────

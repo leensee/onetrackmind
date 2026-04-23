@@ -24,12 +24,6 @@ import {
 // Public surface preserved for consumers importing from './approvalGate'.
 export * from './pure';
 
-// ── Constants (internal) ──────────────────────────────────────
-
-const FEEDBACK_GITHUB_REPO = 'leensee/onetrackmind';
-const FEEDBACK_GITHUB_URL  =
-  `https://api.github.com/repos/${FEEDBACK_GITHUB_REPO}/issues`;
-
 // ── Send Helpers ──────────────────────────────────────────────
 
 export function sendApprovalRequest(
@@ -70,15 +64,26 @@ export function sendRegenLimitMessage(
 // if provided. Logs locally if both fail.
 // Uses fetch (Node 18+ built-in) — no new HTTP dependency.
 // token: GITHUB_FEEDBACK_TOKEN from environment (injected by caller).
-// fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
+// options.githubRepo / options.titleFormat: edition-specific values,
+// caller resolves from EditionConfig (repo from AuditConfig.githubRepo,
+// title format from EditionConfig.feedbackIssueTitleFormat).
+// options.fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
 // know which email provider is in use. Receives the full FeedbackPayload
 // so the caller doesn't have to reconstruct or re-serialize it.
 
+export interface FeedbackSubmitOptions {
+  githubRepo:       string;
+  titleFormat:      string;
+  fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>;
+}
+
 export async function submitFeedback(
-  payload:          FeedbackPayload,
-  token:            string | undefined,
-  fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>
+  payload: FeedbackPayload,
+  token:   string | undefined,
+  options: FeedbackSubmitOptions
 ): Promise<void> {
+  const { githubRepo, titleFormat, fallbackEmailFn } = options;
+
   // No token — skip GitHub entirely, route directly to fallback.
   // Orchestrator passes env.githubFeedbackToken here; undefined is valid
   // pre-Phase 4 and the gate owns this path — no orchestrator decision needed.
@@ -115,8 +120,9 @@ export async function submitFeedback(
     );
   }
 
+  const issueUrl = `https://api.github.com/repos/${githubRepo}/issues`;
   const issueBody = {
-    title:  `[audit-failure] ${payload.sessionId}`,
+    title:  titleFormat.replace('{sessionId}', payload.sessionId),
     body:   JSON.stringify(payload, null, 2),
     labels: ['audit-failure', 'regen-limit-reached'],
   };
@@ -124,7 +130,7 @@ export async function submitFeedback(
   let githubSucceeded = false;
 
   try {
-    const response = await fetch(FEEDBACK_GITHUB_URL, {
+    const response = await fetch(issueUrl, {
       method:  'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
