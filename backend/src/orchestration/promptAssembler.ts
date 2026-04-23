@@ -5,7 +5,6 @@
 // via AssemblerInput. No OTM v1 assumptions hardcoded here.
 // ============================================================
 
-import path from 'path';
 import {
   AssemblerInput,
   AssemblerOutput,
@@ -18,10 +17,7 @@ import {
   formatOpenItems,
   formatConsistContext,
 } from './formatters';
-
-// __dirname is available natively in CJS — no computation required.
-// Two levels up from src/orchestration/ → backend/
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+import { loadStringExport } from './configLoader';
 
 const DEFAULT_TOTAL_TOKENS       = 200_000;
 const DEFAULT_RESPONSE_RESERVE   = 4_000;
@@ -86,35 +82,6 @@ function trimHistory(history: Message[], budgetTokens: number): TrimResult {
   return { trimmedHistory: working, turnsTrimmed };
 }
 
-// ── System Prompt Loader ─────────────────────────────────────
-// Synchronous in CJS. configPath is relative to PROJECT_ROOT.
-// ts-node resolves .ts at dev time; Node resolves compiled .js at runtime.
-// Do not pass a file extension — resolution is handled automatically.
-
-function loadSystemPrompt(configPath: string): string {
-  try {
-    const resolvedPath = path.resolve(PROJECT_ROOT, configPath);
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require(resolvedPath) as unknown;
-
-    if (
-      typeof mod !== 'object' ||
-      mod === null ||
-      typeof (mod as Record<string, unknown>)['SYSTEM_PROMPT'] !== 'string'
-    ) {
-      throw new Error(
-        `System prompt module at '${configPath}' must export a SYSTEM_PROMPT string.`
-      );
-    }
-
-    return (mod as { SYSTEM_PROMPT: string }).SYSTEM_PROMPT;
-  } catch (err) {
-    throw new Error(
-      `Failed to load system prompt from '${configPath}': ${(err as Error).message}`
-    );
-  }
-}
-
 // ── Main Assembler ───────────────────────────────────────────
 
 export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOutput> {
@@ -127,7 +94,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const dynamicCap      = windowCfg.dynamicInjectionCap ?? DEFAULT_DYNAMIC_INJECT_CAP;
 
   // ── 2. Load static system prompt ──────────────────────────
-  const staticPrompt = loadSystemPrompt(editionConfig.systemPromptPath);
+  const staticPrompt = loadStringExport(editionConfig.systemPromptPath, 'SYSTEM_PROMPT');
   const staticTokens = estimateTokens(staticPrompt);
 
   // ── 3. Build dynamic injection blocks ─────────────────────

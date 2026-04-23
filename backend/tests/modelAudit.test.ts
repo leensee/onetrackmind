@@ -21,6 +21,11 @@ import {
   ModelAuditInput,
   ActiveFlag,
 } from '../src/orchestration/types';
+import { MODEL_AUDIT_PROMPT } from '../src/config/model-audit-prompt';
+import { loadStringExport } from '../src/orchestration/configLoader';
+
+// Path used by every runModelAudit call site. Relative to backend/ (PROJECT_ROOT).
+const MODEL_AUDIT_PROMPT_PATH = 'src/config/model-audit-prompt';
 
 // ── Fixtures ──────────────────────────────────────────────────
 
@@ -272,7 +277,7 @@ async function runTests(): Promise<void> {
   await test('runModelAudit: timeout throws ModelAuditError with cause=timeout', async () => {
     const client = makeMockClient({ neverResolve: true });
     const err = await assertRejects(
-      () => runModelAudit(BASE_AUDIT_INPUT, client, 50),
+      () => runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH, 50),
       'ModelAuditError',
       'must throw ModelAuditError on timeout'
     );
@@ -284,7 +289,7 @@ async function runTests(): Promise<void> {
   await test('runModelAudit: API error throws ModelAuditError with cause=api_error', async () => {
     const client = makeMockClient({ rejectWith: new Error('rate_limit_exceeded') });
     const err = await assertRejects(
-      () => runModelAudit(BASE_AUDIT_INPUT, client),
+      () => runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH),
       'ModelAuditError',
       'must throw ModelAuditError on API error'
     );
@@ -295,7 +300,7 @@ async function runTests(): Promise<void> {
   await test('runModelAudit: invalid JSON response throws ModelAuditError with cause=invalid_json', async () => {
     const client = makeMockClient({ responseText: 'this is not json' });
     const err = await assertRejects(
-      () => runModelAudit(BASE_AUDIT_INPUT, client),
+      () => runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH),
       'ModelAuditError',
       'must throw ModelAuditError on invalid JSON'
     );
@@ -304,7 +309,7 @@ async function runTests(): Promise<void> {
 
   await test('runModelAudit: returns pass result on valid pass response', async () => {
     const client = makeMockClient({ responseText: '{"result":"pass","issue":null,"correction":null}' });
-    const result = await runModelAudit(BASE_AUDIT_INPUT, client);
+    const result = await runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH);
     assert(result.result === 'pass', 'result must be pass');
     assert(result.issue === undefined, 'issue must be undefined');
   });
@@ -313,7 +318,7 @@ async function runTests(): Promise<void> {
     const client = makeMockClient({
       responseText: '{"result":"flag","issue":"Tone too formal for peer channel","correction":"Use direct peer register — remove corporate phrasing"}',
     });
-    const result = await runModelAudit(BASE_AUDIT_INPUT, client);
+    const result = await runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH);
     assert(result.result === 'flag', 'result must be flag');
     assert(typeof result.issue === 'string', 'issue must be string');
     assert(typeof result.correction === 'string', 'correction must be string');
@@ -323,10 +328,39 @@ async function runTests(): Promise<void> {
     const client = makeMockClient({
       responseText: '{"result":"revise","issue":"PM interval not in verified sources","correction":"PM interval for this unit is not in logged data — surface the data gap instead"}',
     });
-    const result = await runModelAudit(BASE_AUDIT_INPUT, client);
+    const result = await runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH);
     assert(result.result === 'revise', 'result must be revise');
     assert(typeof result.issue === 'string', 'must have issue');
     assert(typeof result.correction === 'string', 'must have correction');
+  });
+
+  await test('runModelAudit: missing prompt file throws with path and export name in message', async () => {
+    const client = makeMockClient({});
+    let threw = false;
+    let message = '';
+    let cause: string | undefined;
+    let isModelAuditError = false;
+    try {
+      await runModelAudit(BASE_AUDIT_INPUT, client, 'src/config/does-not-exist');
+    } catch (err) {
+      threw = true;
+      message = (err as Error).message;
+      isModelAuditError = err instanceof ModelAuditError;
+      cause = isModelAuditError ? (err as ModelAuditError).cause : undefined;
+    }
+    assert(threw, 'must throw when prompt path does not resolve');
+    assert(isModelAuditError, 'thrown error must be a ModelAuditError');
+    assert(cause === 'config_error', `cause must be config_error — got: ${cause}`);
+    assert(message.includes('src/config/does-not-exist'), 'error message must name the path');
+    assert(message.includes('MODEL_AUDIT_PROMPT'), 'error message must name the export');
+  });
+
+  await test('runModelAudit: loader path + export name resolve to the same string as the module import (anti-drift)', () => {
+    const viaLoader = loadStringExport(MODEL_AUDIT_PROMPT_PATH, 'MODEL_AUDIT_PROMPT');
+    assert(
+      viaLoader === MODEL_AUDIT_PROMPT,
+      'loaded prompt must equal the directly-imported MODEL_AUDIT_PROMPT constant',
+    );
   });
 
   // ── Results ───────────────────────────────────────────────

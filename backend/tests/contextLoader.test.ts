@@ -131,9 +131,10 @@ const BASE_STATE: SessionState = {
 };
 
 const BASE_EDITION_CONFIG: EditionConfig = {
-  editionId:          'otm-v1-mechanic',
-  systemPromptPath:   'src/config/system-prompt.v1.0',
-  styleProfileTable:  'style_observations',
+  editionId:            'otm-v1-mechanic',
+  systemPromptPath:     'src/config/system-prompt.v1.0',
+  modelAuditPromptPath: 'src/config/model-audit-prompt',
+  styleProfileTable:    'style_observations',
   contextFields: {
     includeActiveFlags:    true,
     includeOpenItems:      true,
