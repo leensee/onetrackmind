@@ -7,7 +7,6 @@
 // string represents (prompt, template, copy, anything).
 // ============================================================
 
-import fs from 'fs';
 import path from 'path';
 
 // Two levels up from src/orchestration/ → backend/
@@ -34,7 +33,7 @@ function getCandidateModulePaths(configPath: string): string[] {
         distResolvedPath = distResolvedPath.slice(0, -3) + '.js';
       }
 
-      if (distResolvedPath !== resolvedPath && fs.existsSync(distResolvedPath)) {
+      if (distResolvedPath !== resolvedPath) {
         candidates.push(distResolvedPath);
       }
     }
