@@ -43,8 +43,10 @@ const BASE_PAYLOAD: FeedbackPayload = {
 };
 
 const BASE_OPTIONS: FeedbackSubmitOptions = {
-  githubRepo:  TEST_REPO,
-  titleFormat: TEST_TITLE_FORMAT,
+  github: {
+    repo:        TEST_REPO,
+    titleFormat: TEST_TITLE_FORMAT,
+  },
 };
 
 // ── Test Runner ───────────────────────────────────────────────
@@ -322,8 +324,8 @@ async function runTests(): Promise<void> {
     };
     let fallbackCalled = false;
     let capturedPayload: FeedbackPayload | null = null;
+    // No github field — email-only caller need not supply GitHub options
     await submitFeedback(BASE_PAYLOAD, undefined, {
-      ...BASE_OPTIONS,
       fallbackEmailFn: async (payload) => {
         fallbackCalled = true;
         capturedPayload = payload;
@@ -401,6 +403,19 @@ async function runTests(): Promise<void> {
   });
 
   // ── submitFeedback injection tests (AG-2, AG-4) ──────────────
+  await test('submitFeedback: throws feedback_error when token is present but github options absent', async () => {
+    (global as unknown as { fetch: unknown }).fetch = async () => {
+      throw new Error('fetch must not be called');
+    };
+    const err = await assertRejects(
+      () => submitFeedback(BASE_PAYLOAD, 'test-token', {}),
+      'ApprovalGateError',
+      'must throw ApprovalGateError when token present but github absent'
+    );
+    assert(err.cause === 'feedback_error', `cause must be feedback_error, got ${err.cause}`);
+    assert(err.requestId === SESSION_ID, 'must carry sessionId as requestId');
+  });
+
   await test('submitFeedback: uses injected githubRepo in API URL', async () => {
     let capturedUrl = '';
     (global as unknown as { fetch: unknown }).fetch = async (url: string) => {
@@ -408,8 +423,7 @@ async function runTests(): Promise<void> {
       return { ok: true, status: 201, statusText: 'Created' };
     };
     await submitFeedback(BASE_PAYLOAD, 'test-token', {
-      githubRepo:  'other-org/other-edition',
-      titleFormat: '[x] {sessionId}',
+      github: { repo: 'other-org/other-edition', titleFormat: '[x] {sessionId}' },
     });
     assert(
       capturedUrl.includes('other-org/other-edition'),
@@ -428,8 +442,7 @@ async function runTests(): Promise<void> {
       return { ok: true, status: 201, statusText: 'Created' };
     };
     await submitFeedback(BASE_PAYLOAD, 'test-token', {
-      githubRepo:  TEST_REPO,
-      titleFormat: '[audit-{sessionId}]-flagged',
+      github: { repo: TEST_REPO, titleFormat: '[audit-{sessionId}]-flagged' },
     });
     const body = capturedBody as { title: string };
     assert(

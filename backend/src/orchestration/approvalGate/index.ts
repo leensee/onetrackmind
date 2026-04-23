@@ -64,16 +64,20 @@ export function sendRegenLimitMessage(
 // if provided. Logs locally if both fail.
 // Uses fetch (Node 18+ built-in) — no new HTTP dependency.
 // token: GITHUB_FEEDBACK_TOKEN from environment (injected by caller).
-// options.githubRepo / options.titleFormat: edition-specific values,
-// caller resolves from EditionConfig (repo from AuditConfig.githubRepo,
-// title format from EditionConfig.feedbackIssueTitleFormat).
+// options.github: edition-specific GitHub fields (repo, titleFormat).
+//   Required when token is present; ignored (and not required) when absent.
+//   repo: from AuditConfig.githubRepo; titleFormat: from EditionConfig.feedbackIssueTitleFormat.
 // options.fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
 // know which email provider is in use. Receives the full FeedbackPayload
 // so the caller doesn't have to reconstruct or re-serialize it.
+// Callers that only use email fallback (no token, no GitHub) need not
+// supply options.github at all.
 
 export interface FeedbackSubmitOptions {
-  githubRepo:       string;
-  titleFormat:      string;
+  github?: {
+    repo:        string;
+    titleFormat: string;
+  };
   fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>;
 }
 
@@ -82,7 +86,7 @@ export async function submitFeedback(
   token:   string | undefined,
   options: FeedbackSubmitOptions
 ): Promise<void> {
-  const { githubRepo, titleFormat, fallbackEmailFn } = options;
+  const { github, fallbackEmailFn } = options;
 
   // No token — skip GitHub entirely, route directly to fallback.
   // Orchestrator passes env.githubFeedbackToken here; undefined is valid
@@ -120,9 +124,17 @@ export async function submitFeedback(
     );
   }
 
-  const issueUrl = `https://api.github.com/repos/${githubRepo}/issues`;
+  if (!github) {
+    throw new ApprovalGateError(
+      'Feedback submission failed — options.github (repo and titleFormat) is required when a token is provided',
+      payload.sessionId,
+      'feedback_error'
+    );
+  }
+
+  const issueUrl = `https://api.github.com/repos/${github.repo}/issues`;
   const issueBody = {
-    title:  titleFormat.replace('{sessionId}', payload.sessionId),
+    title:  github.titleFormat.replace('{sessionId}', payload.sessionId),
     body:   JSON.stringify(payload, null, 2),
     labels: ['audit-failure', 'regen-limit-reached'],
   };
