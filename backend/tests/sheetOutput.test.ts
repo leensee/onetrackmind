@@ -46,6 +46,14 @@ async function runTests(): Promise<void> {
   await test('empty rows → error', () => {
     assert(validateSheetTable({ headers: ['Date'], rows: [] }) !== null, 'error');
   });
+  await test('non-string title → error', () => {
+    const r = validateSheetTable({ ...BASIC_TABLE, title: null as unknown as string });
+    assert(r !== null && r.includes('title'), `error: ${r}`);
+  });
+  await test('empty string title → error', () => {
+    const r = validateSheetTable({ ...BASIC_TABLE, title: '' });
+    assert(r !== null && r.includes('title'), `error: ${r}`);
+  });
 
   // ── escapeCsvCell ──────────────────────────────────────────
   console.log('\n[sheetOutput] escapeCsvCell');
@@ -98,13 +106,16 @@ async function runTests(): Promise<void> {
     const csv = buildCsvPayload(BASIC_TABLE);
     assert(csv.includes('\r\n'), 'CRLF');
   });
-  await test('title written as comment line when present', () => {
-    const csv = buildCsvPayload({ ...BASIC_TABLE, title: 'Expense Report' });
-    assert(csv.startsWith('# Expense Report'), 'comment line');
-  });
-  await test('no comment line when title absent', () => {
+  await test('csv never contains a title line — title absent', () => {
     const csv = buildCsvPayload(BASIC_TABLE);
-    assert(!csv.startsWith('#'), 'no comment');
+    const lines = csv.split('\r\n').filter((line) => line.length > 0);
+    assert(lines[0] === 'Date,Vendor,Amount', 'first record must be the header row');
+  });
+  await test('csv never contains a title line — title present', () => {
+    const csv = buildCsvPayload({ ...BASIC_TABLE, title: 'Expense Report' });
+    const lines = csv.split('\r\n').filter((line) => line.length > 0);
+    assert(lines[0] === 'Date,Vendor,Amount', 'first record must still be the header row');
+    assert(!csv.includes('Expense Report'), 'title string absent from csv bytes');
   });
   await test('null values produce empty cells', () => {
     const csv = buildCsvPayload({
@@ -131,13 +142,32 @@ async function runTests(): Promise<void> {
     assert(r.ok === false, 'ok false');
     if (!r.ok) assert(r.error.includes('headers'), 'error message');
   });
-  await test('csv is RFC 4180 parseable (round-trip check)', () => {
+  await test('csv quote-doubling matches RFC 4180 escape rules', () => {
     const r = buildSheetOutput({
       headers: ['Name', 'Notes'],
       rows: [{ Name: 'Part A', Notes: 'needs, quote: "test"' }],
     });
     assert(r.ok === true, 'ok');
     if (r.ok) assert(r.csv.includes('""test""'), 'quotes doubled');
+  });
+  await test('result.title present when input has title', () => {
+    const r = buildSheetOutput({ ...BASIC_TABLE, title: 'Expense Report' });
+    assert(r.ok === true, 'ok');
+    if (r.ok) assert(r.title === 'Expense Report', 'title returned on result');
+  });
+  await test('result.title is trimmed when input title has surrounding whitespace', () => {
+    const r = buildSheetOutput({ ...BASIC_TABLE, title: '  Expense Report  ' });
+    assert(r.ok === true, 'ok');
+    if (r.ok) assert(r.title === 'Expense Report', 'title trimmed on result');
+  });
+  await test('result has no title property when input has none', () => {
+    const r = buildSheetOutput(BASIC_TABLE);
+    assert(r.ok === true, 'ok');
+    if (r.ok) assert(!('title' in r), 'title property absent when input had none');
+  });
+  await test('result has no title property when input title is non-string (runtime guard)', () => {
+    const r = buildSheetOutput({ ...BASIC_TABLE, title: null as unknown as string });
+    assert(r.ok === false, 'non-string title must fail validation');
   });
 
   // ── Summary ───────────────────────────────────────────────

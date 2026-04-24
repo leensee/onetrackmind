@@ -633,14 +633,17 @@ export interface SheetRow {
 export interface SheetTable {
   headers: string[];
   rows:    SheetRow[];
-  title?:  string;    // optional; written as comment line in CSV output
+  title?:  string;    // optional; out-of-band metadata, surfaced on SheetOutputResult.title — not embedded in CSV bytes
 }
 
-// csv: RFC 4180-compliant CSV string — universal format.
-// Compatible with user download, Google Sheets API upload, and Excel import.
-// Interface layer handles file write or API delivery.
+// csv:   RFC 4180-compliant CSV string (tabular data only — no title line).
+// title: optional out-of-band metadata — when the input SheetTable had a
+//        title, it rides on the result for the interface layer to surface
+//        (sheet tab name, email subject, filename, UI header). NOT embedded
+//        in `csv` — RFC 4180 has no comment mechanism.
+// rowCount / columnCount: counts of the data payload, title not included.
 export type SheetOutputResult =
-  | { ok: true;  csv: string; rowCount: number; columnCount: number }
+  | { ok: true;  csv: string; rowCount: number; columnCount: number; title?: string }
   | { ok: false; error: string };
 
 // ── Orchestrator Tool Integration ─────────────────────────────

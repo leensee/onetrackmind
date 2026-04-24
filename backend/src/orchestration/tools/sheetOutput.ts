@@ -29,6 +29,9 @@ export function validateSheetTable(table: SheetTable): string | null {
   if (!Array.isArray(table.rows) || table.rows.length === 0) {
     return 'rows must be a non-empty array';
   }
+  if (table.title !== undefined && (typeof table.title !== 'string' || table.title.trim() === '')) {
+    return 'title must be a non-empty string when present';
+  }
   return null;
 }
 
@@ -39,7 +42,7 @@ export function validateSheetTable(table: SheetTable): string | null {
 // - Double any internal double quotes
 // - Null → empty string
 export function escapeCsvCell(value: SheetCellValue): string {
-  if (value === null || value === undefined) return '';
+  if (value === null) return '';
   const str = String(value);
   if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
     return `"${str.replace(/"/g, '""')}"`;
@@ -55,13 +58,13 @@ export function buildCsvRow(row: SheetRow, headers: string[]): string {
 
 // Produces RFC 4180 CSV string from a SheetTable.
 // CRLF line endings per spec.
-// Optional title written as a comment line (#) at top —
-// Google Sheets and Excel ignore comment lines on import.
+// Title is NOT written into the CSV — RFC 4180 has no comment
+// mechanism, and "# title" would render as literal cell A1 content
+// in Google Sheets and Excel. Title is returned on SheetOutputResult
+// as out-of-band metadata for the interface layer to surface
+// (filename, sheet tab, email subject, UI header).
 export function buildCsvPayload(table: SheetTable): string {
   const lines: string[] = [];
-  if (table.title) {
-    lines.push(`# ${table.title}`);
-  }
   lines.push(table.headers.map(h => escapeCsvCell(h)).join(','));
   for (const row of table.rows) {
     lines.push(buildCsvRow(row, table.headers));
@@ -80,5 +83,6 @@ export function buildSheetOutput(table: SheetTable): SheetOutputResult {
     csv,
     rowCount:    table.rows.length,
     columnCount: table.headers.length,
+    ...(typeof table.title === 'string' ? { title: table.title.trim() } : {}),
   };
 }

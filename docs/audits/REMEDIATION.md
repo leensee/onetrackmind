@@ -62,7 +62,7 @@ for full finding detail. Stop after Section 1 and await approval.
 | 6 | #8 | AG-3, AG-10 | `approvalGate/pure.ts` (new), `approvalGate/index.ts` | none | ✅ Committed |
 | 7 | #9 | AG-2, AG-4, S1-E2 | `approvalGate/`, `outputRouter.ts`, `EditionConfig` type | needs #6 | ✅ Committed |
 | 8 | #10 | MA-4, MA-5 | `modelAudit.ts`, `promptAssembler.ts`, `configLoader.ts` (new), `model-audit-prompt.ts` (new), `EditionConfig` | needs #7 | ✅ Committed |
-| 9 | #11 | SO-3 | sheet output module | none | ⬜ TODO |
+| 9 | #11 | SO-3, SO-2, SO-6, SO-7 | `sheetOutput.ts`, `types.ts`, `sheetOutput.test.ts` | none | ✅ Committed |
 | 10 | #12 | PF-6, PF-7 | `preflight.ts`, orchestrator state | needs #7 | ⬜ TODO |
 
 **Status key:** ⬜ TODO · 🔄 In progress · ✅ Committed · 🚫 Blocked
