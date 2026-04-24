@@ -100,13 +100,13 @@ async function runTests(): Promise<void> {
   });
   await test('csv never contains a title line — title absent', () => {
     const csv = buildCsvPayload(BASIC_TABLE);
-    const anyLineStartsWithHash = csv.split('\r\n').some(line => line.startsWith('#'));
-    assert(!anyLineStartsWithHash, 'no line starts with #');
+    assert(!csv.startsWith('#'), 'csv must not begin with a title/comment line');
+    assert(csv.startsWith('Date,Vendor,Amount\r\n'), 'first record must be the header row');
   });
   await test('csv never contains a title line — title present', () => {
     const csv = buildCsvPayload({ ...BASIC_TABLE, title: 'Expense Report' });
-    const anyLineStartsWithHash = csv.split('\r\n').some(line => line.startsWith('#'));
-    assert(!anyLineStartsWithHash, 'title must not leak into csv bytes');
+    assert(!csv.startsWith('#'), 'title must not leak into csv bytes');
+    assert(csv.startsWith('Date,Vendor,Amount\r\n'), 'first record must still be the header row');
     assert(!csv.includes('Expense Report'), 'title string absent from csv bytes');
   });
   await test('null values produce empty cells', () => {
