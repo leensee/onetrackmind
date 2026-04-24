@@ -131,7 +131,11 @@ export async function dispatchToolCall(
       try {
         sequence = await deps.db.allocateNext(call.input.userId);
       } catch (err) {
-        return { status: 'error', tool, error: (err as Error).message };
+        const detail =
+          err instanceof Error && err.message.trim().length > 0
+            ? err.message
+            : 'unknown database error';
+        return { status: 'error', tool, error: `PO sequence allocation failed: ${detail}` };
       }
       const genResult = buildPoGenerateResult(call.input, sequence);
       if (!genResult.ok) return { status: 'error', tool, error: genResult.error };
