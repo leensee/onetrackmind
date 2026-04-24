@@ -268,6 +268,40 @@ async function runTests(): Promise<void> {
     }
   });
 
+  await test('allocateNext throws with message → error has stable prefix', async () => {
+    const failingStore: PoSequenceDbClient = {
+      allocateNext: async () => { throw new Error('DB error'); },
+    };
+    const r = await dispatchToolCall(
+      { tool: 'po_generate', input: PO_INPUT },
+      makeDeps({ sequenceStore: failingStore })
+    );
+    assert(r.status === 'error', `got ${r.status}`);
+    if (r.status === 'error') {
+      assert(
+        r.error.startsWith('PO sequence allocation failed:'),
+        `expected stable prefix; got "${r.error}"`
+      );
+      assert(r.error.includes('DB error'), `expected original message in error; got "${r.error}"`);
+    }
+  });
+  await test('allocateNext throws with empty message → error uses fallback text', async () => {
+    const failingStore: PoSequenceDbClient = {
+      allocateNext: async () => { throw new Error(''); },
+    };
+    const r = await dispatchToolCall(
+      { tool: 'po_generate', input: PO_INPUT },
+      makeDeps({ sequenceStore: failingStore })
+    );
+    assert(r.status === 'error', `got ${r.status}`);
+    if (r.status === 'error') {
+      assert(
+        r.error === 'PO sequence allocation failed: unknown database error',
+        `got "${r.error}"`
+      );
+    }
+  });
+
   await test('cross-user sequences are independent', async () => {
     const store = createInMemoryPoSequenceStore();
     const r1 = await dispatchToolCall(
