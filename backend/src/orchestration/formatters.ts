@@ -4,10 +4,11 @@
 // (ActiveFlag, OpenItem, MachineRef, ConsistContext, tool drafts)
 // into human-readable strings. Consumers: promptAssembler (PA-8),
 // modelAudit (MA-5), orchestratorTools approval gate (OT-9),
-// preflight SMS markdown detection (PF-15).
+// preflight SMS markdown detection (PF-15),
+// outputRouter SMS formatting (OR-3).
 // Pure — no side effects, no I/O, deterministic on inputs.
 // Resolves audit finding 2026-04-16-OT-9 (Phase 3 audit).
-// Also addresses PA-8, MA-5, PF-15 (Pattern 7 — reimplemented
+// Also addresses PA-8, MA-5, PF-15, OR-3 (Pattern 7 — reimplemented
 // format logic for the same data types).
 // ============================================================
 
@@ -179,23 +180,17 @@ function formatPoDocumentForApproval(doc: PoDocument): string {
 // ── SMS markdown patterns ─────────────────────────────────────
 
 /**
- * Regex list for detecting SMS-incompatible markdown in response
- * text. Used by:
- *  - preflight Rule 6 (PF-15) via .test() — this commit
- *  - outputRouter.formatForSms (OR-3, migration pending) via
- *    .replace() — future commit
+ * Regex list for detecting and stripping SMS-incompatible markdown in
+ * response text. Used by:
+ *  - preflight Rule 6 (PF-15) via .test()
+ *  - outputRouter.formatForSms (OR-3) via .replace() with g-flagged
+ *    variants composed at call time
  *
  * Patterns are intentionally NOT global-flagged: stateful .test()
  * on g-flagged module-scoped regexes produces false negatives on
- * subsequent calls (lastIndex drift). The OR-3 migration will
- * compose g-flagged replacers from these sources — e.g.
+ * subsequent calls (lastIndex drift). outputRouter.formatForSms
+ * composes g-flagged replacers from these sources — e.g.
  * `new RegExp(p.source, p.flags + 'g')`.
- *
- * Superset of what PF-15 detected pre-migration — now also
- * catches the table-row full-line pattern and italic `*` that
- * outputRouter.formatForSms strips but preflight previously
- * missed. Detection and removal will share one source of truth
- * once OR-3 lands.
  */
 export const SMS_MARKDOWN_PATTERNS: readonly RegExp[] = [
   /^#{1,6}\s+/m,       // headers: # ## ### ...
