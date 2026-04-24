@@ -633,7 +633,7 @@ export interface SheetRow {
 export interface SheetTable {
   headers: string[];
   rows:    SheetRow[];
-  title?:  string;    // optional; written as comment line in CSV output
+  title?:  string;    // optional; out-of-band metadata — not embedded in CSV bytes
 }
 
 // csv:   RFC 4180-compliant CSV string (tabular data only — no title line).
