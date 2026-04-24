@@ -83,6 +83,6 @@ export function buildSheetOutput(table: SheetTable): SheetOutputResult {
     csv,
     rowCount:    table.rows.length,
     columnCount: table.headers.length,
-    ...(typeof table.title === 'string' ? { title: table.title } : {}),
+    ...(typeof table.title === 'string' ? { title: table.title.trim() } : {}),
   };
 }

@@ -157,6 +157,11 @@ async function runTests(): Promise<void> {
     assert(r.ok === true, 'ok');
     if (r.ok) assert(r.title === 'Expense Report', 'title returned on result');
   });
+  await test('result.title is trimmed when input title has surrounding whitespace', () => {
+    const r = buildSheetOutput({ ...BASIC_TABLE, title: '  Expense Report  ' });
+    assert(r.ok === true, 'ok');
+    if (r.ok) assert(r.title === 'Expense Report', 'title trimmed on result');
+  });
   await test('result has no title property when input has none', () => {
     const r = buildSheetOutput(BASIC_TABLE);
     assert(r.ok === true, 'ok');
