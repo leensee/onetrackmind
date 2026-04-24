@@ -123,6 +123,35 @@ async function runTests(): Promise<void> {
     assert(validateCommsDraftInput(makeEmailInput()) === null, 'null');
   });
 
+  // ── validateCommsDraftInput — runtime shape guards ─────────
+
+  console.log('\n[commsDrafter] validateCommsDraftInput — runtime shape guards');
+
+  await test('null input → error', () => {
+    const r = validateCommsDraftInput(null as unknown as CommsDraftInput);
+    assert(r !== null && r.includes('non-null object'), 'non-null object error');
+  });
+  await test('non-object input (number) → error', () => {
+    const r = validateCommsDraftInput(42 as unknown as CommsDraftInput);
+    assert(r !== null && r.includes('non-null object'), 'non-null object error');
+  });
+  await test('non-string body (number) → error', () => {
+    const r = validateCommsDraftInput(makeSmsInput({ body: 42 as unknown as string }));
+    assert(r !== null && r.includes('body'), 'body error');
+  });
+  await test('non-string body (null) → error', () => {
+    const r = validateCommsDraftInput(makeSmsInput({ body: null as unknown as string }));
+    assert(r !== null && r.includes('body'), 'body error');
+  });
+  await test('non-string subject (number) → error for email', () => {
+    const r = validateCommsDraftInput(makeEmailInput({ subject: 99 as unknown as string }));
+    assert(r !== null && r.includes('subject'), 'subject error');
+  });
+  await test('non-string replyTo (number) → error for email', () => {
+    const r = validateCommsDraftInput(makeEmailInput({ replyTo: 7 as unknown as string }));
+    assert(r !== null && r.includes('replyTo'), 'replyTo error');
+  });
+
   // ── buildCommsDraft ────────────────────────────────────────
 
   console.log('\n[commsDrafter] buildCommsDraft');
