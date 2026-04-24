@@ -29,6 +29,9 @@ export function validateSheetTable(table: SheetTable): string | null {
   if (!Array.isArray(table.rows) || table.rows.length === 0) {
     return 'rows must be a non-empty array';
   }
+  if ('title' in table && (typeof table.title !== 'string' || table.title.trim() === '')) {
+    return 'title must be a non-empty string when present';
+  }
   return null;
 }
 
@@ -80,6 +83,6 @@ export function buildSheetOutput(table: SheetTable): SheetOutputResult {
     csv,
     rowCount:    table.rows.length,
     columnCount: table.headers.length,
-    ...(table.title !== undefined ? { title: table.title } : {}),
+    ...(typeof table.title === 'string' ? { title: table.title } : {}),
   };
 }

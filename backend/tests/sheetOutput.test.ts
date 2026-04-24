@@ -46,6 +46,14 @@ async function runTests(): Promise<void> {
   await test('empty rows → error', () => {
     assert(validateSheetTable({ headers: ['Date'], rows: [] }) !== null, 'error');
   });
+  await test('non-string title → error', () => {
+    const r = validateSheetTable({ ...BASIC_TABLE, title: null as unknown as string });
+    assert(r !== null && r.includes('title'), `error: ${r}`);
+  });
+  await test('empty string title → error', () => {
+    const r = validateSheetTable({ ...BASIC_TABLE, title: '' });
+    assert(r !== null && r.includes('title'), `error: ${r}`);
+  });
 
   // ── escapeCsvCell ──────────────────────────────────────────
   console.log('\n[sheetOutput] escapeCsvCell');
@@ -151,6 +159,10 @@ async function runTests(): Promise<void> {
     const r = buildSheetOutput(BASIC_TABLE);
     assert(r.ok === true, 'ok');
     if (r.ok) assert(!('title' in r), 'title property absent when input had none');
+  });
+  await test('result has no title property when input title is non-string (runtime guard)', () => {
+    const r = buildSheetOutput({ ...BASIC_TABLE, title: null as unknown as string });
+    assert(r.ok === false, 'non-string title must fail validation');
   });
 
   // ── Summary ───────────────────────────────────────────────
