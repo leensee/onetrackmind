@@ -166,10 +166,12 @@ export interface PreflightFlag {
 }
 
 export interface PreflightInput {
-  responseText:   string;
-  event:          ProcessedEvent;
-  contextualData: ContextualData;
-  postApproval:   boolean;
+  responseText:     string;
+  event:            ProcessedEvent;
+  contextualData:   ContextualData;
+  postApproval:     boolean;
+  actionWasInvoked: boolean;
+  gateWasInvoked:   boolean;
 }
 
 export interface ModelAuditResult {
