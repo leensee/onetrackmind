@@ -73,10 +73,12 @@ const CONTEXT_WITH_ALPHA_SERIAL: ContextualData = {
 
 function makeInput(overrides: Partial<PreflightInput>): PreflightInput {
   return {
-    responseText:   '',
-    event:          BASE_EVENT,
-    contextualData: EMPTY_CONTEXT,
-    postApproval:   false,
+    responseText:     '',
+    event:            BASE_EVENT,
+    contextualData:   EMPTY_CONTEXT,
+    postApproval:     false,
+    actionWasInvoked: false,
+    gateWasInvoked:   false,
     ...overrides,
   };
 }
@@ -154,6 +156,27 @@ async function runTests(): Promise<void> {
     );
   });
 
+  test('Rule 1 (PF-6): actionWasInvoked=true suppresses rule even with past-tense pattern', () => {
+    assertNoFlag(
+      makeInput({ responseText: "I've sent the shift update to Blaine.", actionWasInvoked: true }),
+      'AUTONOMOUS_ACTION_DETECTED'
+    );
+  });
+
+  test('Rule 1 (PF-6): actionWasInvoked=false + past-tense pattern fires as defense-in-depth', () => {
+    assertFlag(
+      makeInput({ responseText: "I've sent the shift update to Blaine.", actionWasInvoked: false }),
+      'AUTONOMOUS_ACTION_DETECTED', 'hold'
+    );
+  });
+
+  test('Rule 1 (PF-6): gateWasInvoked=true has no effect on Rule 1 (signal isolation)', () => {
+    assertFlag(
+      makeInput({ responseText: "I've sent the shift update to Blaine.", gateWasInvoked: true }),
+      'AUTONOMOUS_ACTION_DETECTED', 'hold'
+    );
+  });
+
   // ── Rule 2: Outbound Draft Without Gate ───────────────────
   test('Rule 2: outbound draft without gate marker flags as hold', () => {
     assertFlag(
@@ -180,6 +203,36 @@ async function runTests(): Promise<void> {
     assertNoFlag(
       makeInput({ responseText: 'PM interval for the 6700 is 250 hours per the service manual.' }),
       'OUTBOUND_DRAFT_WITHOUT_GATE'
+    );
+  });
+
+  test('Rule 2 (PF-7): gateWasInvoked=true suppresses rule even without gate marker text', () => {
+    assertNoFlag(
+      makeInput({
+        responseText:   "To: Blaine\nSubject: Shift Update\n\nHey Blaine, here is today's summary.",
+        gateWasInvoked: true,
+      }),
+      'OUTBOUND_DRAFT_WITHOUT_GATE'
+    );
+  });
+
+  test('Rule 2 (PF-7): gateWasInvoked=false + outbound draft without marker fires as defense-in-depth', () => {
+    assertFlag(
+      makeInput({
+        responseText:   "To: Blaine\nSubject: Shift Update\n\nHey Blaine, here is today's summary.",
+        gateWasInvoked: false,
+      }),
+      'OUTBOUND_DRAFT_WITHOUT_GATE', 'hold'
+    );
+  });
+
+  test('Rule 2 (PF-7): actionWasInvoked=true has no effect on Rule 2 (signal isolation)', () => {
+    assertFlag(
+      makeInput({
+        responseText:     "To: Blaine\nSubject: Shift Update\n\nHey Blaine, here is today's summary.",
+        actionWasInvoked: true,
+      }),
+      'OUTBOUND_DRAFT_WITHOUT_GATE', 'hold'
     );
   });
 
@@ -377,6 +430,16 @@ async function runTests(): Promise<void> {
     }));
     assert(!result.flags.some(f => f.rule === 'AUTONOMOUS_ACTION_DETECTED'), 'Rule 1 must not fire when postApproval=true');
     assert(!result.flags.some(f => f.rule === 'OUTBOUND_DRAFT_WITHOUT_GATE'), 'Rule 2 must not fire when postApproval=true');
+  });
+
+  test('Pass (PF-6/PF-7): both signals true suppress Rule 1 + Rule 2, pass=true with no flags', () => {
+    const result = runPreflight(makeInput({
+      responseText:     "To: Blaine\nSubject: Update\n\nI've sent the shift update.",
+      actionWasInvoked: true,
+      gateWasInvoked:   true,
+    }));
+    assert(result.pass === true, 'both signals true must yield pass=true');
+    assert(result.flags.length === 0, 'both signals true must yield empty flags array');
   });
 
   // ── Results ───────────────────────────────────────────────
