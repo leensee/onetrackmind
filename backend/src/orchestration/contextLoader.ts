@@ -122,7 +122,7 @@ const UNION_VALUES = {
 } as const satisfies Partial<Record<keyof UserSettings, readonly string[]>>;
 
 function isUserSettingsKey(k: string): k is keyof UserSettings {
-  return k in DEFAULT_USER_SETTINGS;
+  return Object.hasOwn(DEFAULT_USER_SETTINGS, k);
 }
 
 export function coerceSetting(key: keyof UserSettings, raw: string): CoerceResult {
