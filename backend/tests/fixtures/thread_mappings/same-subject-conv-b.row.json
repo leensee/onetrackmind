@@ -1,0 +1,9 @@
+{
+  "id": "fa0407fa-0407-4407-8407-fa0407fa0407",
+  "identifier_type": "rfc5322_message_id",
+  "identifier_value": "<e5f6a7b8c9@example.com>",
+  "provider": "outlook",
+  "thread_key": "tk-subj-b",
+  "created_at": "2026-06-05T10:00:00Z",
+  "is_synced": 1
+}

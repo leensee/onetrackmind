@@ -1,0 +1,24 @@
+{
+  "id": "fa0101fa-0101-4101-8101-fa0101fa0101",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Jordan Wells",
+  "channels": [
+    "email",
+    "sms"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "jordan.wells@example.com"
+    },
+    {
+      "channel": "sms",
+      "value": "+1555 0110"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": true,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

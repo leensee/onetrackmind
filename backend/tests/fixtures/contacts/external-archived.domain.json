@@ -1,0 +1,19 @@
+{
+  "id": "fa0104fa-0104-4104-8104-fa0104fa0104",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Riley Sample",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "riley.sample@example.com"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "archived",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

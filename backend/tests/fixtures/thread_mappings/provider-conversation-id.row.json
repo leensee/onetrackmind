@@ -1,0 +1,9 @@
+{
+  "id": "fa0402fa-0402-4402-8402-fa0402fa0402",
+  "identifier_type": "provider_conversation_id",
+  "identifier_value": "convo-otlk-aa7bce",
+  "provider": "outlook",
+  "thread_key": "tk-inbound-email-base",
+  "created_at": "2026-06-05T10:00:00Z",
+  "is_synced": 1
+}
