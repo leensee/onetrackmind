@@ -1,0 +1,28 @@
+{
+  "id": "fa021afa-021a-421a-821a-fa021afa021a",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "outbound",
+  "providerMessageId": "pm-outlook-delivery-fallback-sms",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "a8c6a4e6a8c8e6a4a4a4c0e0e6e6c0a8e0a8a0c2c2a8c6e0c4a0c6e6a4a8c4a6",
+  "threadKey": "tk-delivery-fallback-sms",
+  "fromIdentifier": "otm.owner@example.com",
+  "toIdentifiers": [
+    "pat.denton@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Confirming the pump 14 service window for Friday morning.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa010dfa-010d-410d-810d-fa010dfa010d",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": "fallback_used",
+  "deliveryDetail": "mailbox full; delivered via SMS leg",
+  "fallbackLegUsed": "sms",
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

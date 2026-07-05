@@ -1,0 +1,9 @@
+{
+  "id": "fa083cfa-083c-483c-883c-fa083cfa083c",
+  "identifier_type": "subject_hash",
+  "identifier_value": "<inv-83c@example.com>",
+  "provider": "outlook",
+  "thread_key": "tk-inbound-email-base",
+  "created_at": "2026-06-05T10:00:00Z",
+  "is_synced": 1
+}

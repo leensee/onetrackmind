@@ -1,0 +1,28 @@
+{
+  "id": "fa0221fa-0221-4221-8221-fa0221fa0221",
+  "createdAt": "2026-06-07T14:30:00Z",
+  "provider": "yahoo",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": null,
+  "idempotencyProvenance": "content_hash_fallback",
+  "contentHash": "a4e4c8c4c0e6e6a0c8a4c0c6e4e8c6e6c4a4e6c4c2a6c2a2a2e8e0a2e0e2e2c8",
+  "threadKey": "tk-dedup-window",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Duplicate-content probe body.",
+  "providerTimestamp": "2026-06-07T14:30:00Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

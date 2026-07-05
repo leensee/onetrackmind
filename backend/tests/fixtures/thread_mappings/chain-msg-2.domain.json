@@ -1,0 +1,9 @@
+{
+  "id": "fa0404fa-0404-4404-8404-fa0404fa0404",
+  "identifierType": "rfc5322_message_id",
+  "identifierValue": "<b2c3d4e5f6@example.com>",
+  "provider": "yahoo",
+  "threadKey": "tk-chain",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "isSynced": true
+}

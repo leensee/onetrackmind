@@ -1,0 +1,28 @@
+{
+  "id": "fa0201fa-0201-4201-8201-fa0201fa0201",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-outlook-inbound-email-base",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e4e0c4a4a4a8e2a0c6a4c8a4e0c6a8c6e2c0c8c6c8a6e4a8c6c2a6e8a4e2a8e0",
+  "threadKey": "tk-inbound-email-base",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Confirming the pump 14 service window for Friday morning.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": "maintenance",
+  "triageLabel": "action_required",
+  "timeSensitivityFlag": "hard",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

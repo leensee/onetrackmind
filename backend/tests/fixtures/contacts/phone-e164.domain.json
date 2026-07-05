@@ -1,0 +1,19 @@
+{
+  "id": "fa010ffa-010f-410f-810f-fa010ffa010f",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Toby Lane",
+  "channels": [
+    "sms"
+  ],
+  "identifiers": [
+    {
+      "channel": "sms",
+      "value": "+15550142"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

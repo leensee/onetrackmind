@@ -1,0 +1,19 @@
+{
+  "id": "fa0114fa-0114-4114-8114-fa0114fa0114",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Casey Kim (billing)",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "casey.kim+billing@example.com"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

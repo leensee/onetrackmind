@@ -1,0 +1,28 @@
+{
+  "id": "fa0218fa-0218-4218-8218-fa0218fa0218",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "twilio",
+  "channel": "sms",
+  "direction": "outbound",
+  "providerMessageId": "pm-twilio-delivery-fallback-fcm",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e2e2c0a0e6a8c6a4e8c2e6e6a0a2c2c2c8a4a2a6a0c2a6c2a2a6a6a4c4c6a6e6",
+  "threadKey": "tk-delivery-fallback-fcm",
+  "fromIdentifier": "+1555 0198",
+  "toIdentifiers": [
+    "+1555 0142"
+  ],
+  "subject": null,
+  "body": "Confirming the pump 14 service window for Friday morning.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa010ffa-010f-410f-810f-fa010ffa010f",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": "fallback_used",
+  "deliveryDetail": "carrier timeout; delivered via FCM push",
+  "fallbackLegUsed": "fcm",
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

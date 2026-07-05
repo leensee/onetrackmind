@@ -1,0 +1,28 @@
+{
+  "id": "fa0212fa-0212-4212-8212-fa0212fa0212",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-outlook-body-whitespace",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e4c2a4e8a6a8e8a6a8a6e8c6a6c4e4c8e6e8c6a2a4c0c9c4e2c2a6c2c6e4e0e6",
+  "threadKey": "tk-body-whitespace",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "   \n\t  ",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}
