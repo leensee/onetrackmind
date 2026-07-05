@@ -1,0 +1,9 @@
+{
+  "id": "fa0408fa-0408-4408-8408-fa0408fa0408",
+  "identifierType": "rfc5322_message_id",
+  "identifierValue": "<f6a7b8c9d0@example.com>",
+  "provider": "yahoo",
+  "threadKey": "tk-broken-chain-new",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "isSynced": true
+}

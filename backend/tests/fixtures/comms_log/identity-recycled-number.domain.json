@@ -1,0 +1,28 @@
+{
+  "id": "fa021ffa-021f-421f-821f-fa021ffa021f",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "twilio",
+  "channel": "sms",
+  "direction": "inbound",
+  "providerMessageId": "pm-twilio-identity-recycled-number",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e4c2e2c6a2a6e2c2c0c8c0e8a4c8e4e4c4a4a4e4c4c5a0a8a8a6e0e0e6a8c0a8",
+  "threadKey": "tk-identity-recycled-number",
+  "fromIdentifier": "+1555 0178",
+  "toIdentifiers": [
+    "+1555 0198"
+  ],
+  "subject": null,
+  "body": "Confirming the pump 14 service window for Friday morning.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa010efa-010e-410e-810e-fa010efa010e",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

@@ -1,0 +1,28 @@
+{
+  "id": "fa0210fa-0210-4210-8210-fa0210fa0210",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-outlook-body-unicode",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e8e6a0c6a6c0c4a6a4a4c4c2a8c6a4a0c0a6c8e8a8c4a0e2e2e0c2e8e6a6a0e6",
+  "threadKey": "tk-body-unicode",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Loader 🚜 ready — café side door. ‮مرحبا‬ ​zero-width​ bell:\u0007 漢字 test.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

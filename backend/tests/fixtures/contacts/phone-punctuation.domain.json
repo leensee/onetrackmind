@@ -1,0 +1,19 @@
+{
+  "id": "fa0112fa-0112-4112-8112-fa0112fa0112",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Yard Office",
+  "channels": [
+    "sms"
+  ],
+  "identifiers": [
+    {
+      "channel": "sms",
+      "value": "555.0145"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

@@ -1,0 +1,12 @@
+{
+  "id": "fa0106fa-0106-4106-8106-fa0106fa0106",
+  "created_at": "2026-05-01T00:00:00Z",
+  "display_name": "Devon Field",
+  "channels": "[\"email\"]",
+  "identifiers": "[{\"channel\":\"email\",\"value\":\"devon.field@example.com\"}]",
+  "tone_level": 5,
+  "status": "dismissed",
+  "is_internal_channel": 0,
+  "recognition_metadata": "{}",
+  "is_synced": 0
+}

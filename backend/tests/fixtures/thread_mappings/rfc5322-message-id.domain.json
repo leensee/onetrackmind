@@ -1,0 +1,9 @@
+{
+  "id": "fa0401fa-0401-4401-8401-fa0401fa0401",
+  "identifierType": "rfc5322_message_id",
+  "identifierValue": "<a1b2c3d4e5@example.com>",
+  "provider": "outlook",
+  "threadKey": "tk-inbound-email-base",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "isSynced": true
+}

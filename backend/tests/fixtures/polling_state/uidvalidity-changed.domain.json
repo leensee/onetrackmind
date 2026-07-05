@@ -1,0 +1,12 @@
+{
+  "id": "fa0503fa-0503-4503-8503-fa0503fa0503",
+  "provider": "yahoo",
+  "accountIdentifier": "otm.owner@example.com",
+  "folder": "Sent",
+  "cursor": {
+    "uidValidity": 508211,
+    "lastSeenUid": 0
+  },
+  "lastPolledAt": "2026-07-01T05:00:00Z",
+  "isSynced": true
+}

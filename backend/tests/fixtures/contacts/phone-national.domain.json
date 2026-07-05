@@ -1,0 +1,19 @@
+{
+  "id": "fa0110fa-0110-4110-8110-fa0110fa0110",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Toby Lane Jr",
+  "channels": [
+    "sms"
+  ],
+  "identifiers": [
+    {
+      "channel": "sms",
+      "value": "555-0143"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

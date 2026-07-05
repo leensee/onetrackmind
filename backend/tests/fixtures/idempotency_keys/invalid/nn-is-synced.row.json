@@ -1,0 +1,10 @@
+{
+  "id": "fa083bfa-083b-483b-883b-fa083bfa083b",
+  "key_type": "provider_id",
+  "provider": "outlook",
+  "key_value": "pm-outlook-inv-83b",
+  "first_seen_at": "2026-06-05T10:00:00Z",
+  "expires_at": "2026-09-03T10:00:00Z",
+  "linked_message_id": null,
+  "is_synced": null
+}

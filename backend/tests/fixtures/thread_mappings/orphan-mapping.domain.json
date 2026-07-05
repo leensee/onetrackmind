@@ -1,0 +1,9 @@
+{
+  "id": "fa040bfa-040b-440b-840b-fa040bfa040b",
+  "identifierType": "rfc5322_message_id",
+  "identifierValue": "<b8c9d0e1f2@example.com>",
+  "provider": "outlook",
+  "threadKey": "tk-orphan-no-rows",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "isSynced": false
+}

@@ -1,0 +1,10 @@
+{
+  "id": "fa0305fa-0305-4305-8305-fa0305fa0305",
+  "key_type": "content_hash",
+  "provider": "twilio",
+  "key_value": "c0a2c6a8c4e4e2c8e6e2a8c4a6a8e0c2e4e6a8c8e8c6e4a2a0e6c0c0a8e0e0e8",
+  "first_seen_at": "2026-06-09T10:00:00Z",
+  "expires_at": "2026-06-10T10:00:00Z",
+  "linked_message_id": null,
+  "is_synced": 0
+}
