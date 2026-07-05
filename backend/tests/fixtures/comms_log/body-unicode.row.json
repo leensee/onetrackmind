@@ -11,7 +11,7 @@
   "from_identifier": "alex.rivera@example.com",
   "to_identifiers": "[\"otm.owner@example.com\"]",
   "subject": "Pump 14 service window",
-  "body": "Loader 🚜 ready — café side door. ‮مرحبا‬ ​zero-width​ bell:\u0007 漢字 test.",
+  "body": "Loader 🚜 ready — café side door. \u202Eمرحبا\u202C \u200Bzero-width\u200B bell:\u0007 漢字 test.",
   "provider_timestamp": "2026-06-05T09:59:30Z",
   "contact_id": "fa0103fa-0103-4103-8103-fa0103fa0103",
   "topic_tag": null,
