@@ -3,8 +3,9 @@
 // CJS module. Run via: npm run test:fixtures
 // Self-verifies backend/tests/fixtures/: manifest↔filesystem sync,
 // row/domain pairing, hydration-rule conformance, enum + negative
-// constraint coverage, PII guard, referential integrity, expiry
-// arithmetic, and the schema-version tag.
+// constraint coverage, PII guard, invisible-character (Trojan
+// Source) guard, referential integrity, expiry arithmetic, and the
+// schema-version tag.
 // Governing doc: docs/handoffs/OTM_Phase4.1_Fixtures_ClaudeCode_Handoff.md
 // ============================================================
 
@@ -237,17 +238,18 @@ function identifierValuesOf(table: TableName, row: Row): string[] {
   return out;
 }
 
-// ── walk fixtures dir for *.json ────────────────────────────────
-function walkJson(dir: string, rel = ''): string[] {
+// ── walk fixtures dir ───────────────────────────────────────────
+function walkFiles(dir: string, rel = ''): string[] {
   const out: string[] = [];
   for (const name of fs.readdirSync(dir)) {
     const abs = path.join(dir, name);
     const r = rel ? `${rel}/${name}` : name;
-    if (fs.statSync(abs).isDirectory()) out.push(...walkJson(abs, r));
-    else if (name.endsWith('.json')) out.push(r);
+    if (fs.statSync(abs).isDirectory()) out.push(...walkFiles(abs, r));
+    else out.push(r);
   }
   return out;
 }
+const walkJson = (dir: string): string[] => walkFiles(dir).filter((f) => f.endsWith('.json'));
 
 function fail(problems: string[], label: string): void {
   if (problems.length > 0) {
@@ -440,7 +442,25 @@ async function runTests(): Promise<void> {
     fail(problems, 'PII guard violations');
   });
 
-  // ── 8. Cross-fixture referential integrity ───────────────────
+  // ── 8. Invisible-character guard (Trojan Source) ─────────────
+  // Bidi controls, zero-width chars, BOM, and C0 controls (other
+  // than \t \n \r) must appear in fixture sources only as explicit
+  // \u escapes — raw occurrences are invisible in editors and diffs.
+  test('invisible-char guard — no raw bidi/zero-width/control characters in fixture sources', () => {
+    const problems: string[] = [];
+    const RAW_INVISIBLE =
+      /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u00AD\u061C\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+    for (const rel of walkFiles(FIXTURES_DIR)) {
+      const text = fs.readFileSync(path.join(FIXTURES_DIR, rel), 'utf8');
+      for (const m of text.match(RAW_INVISIBLE) ?? []) {
+        const cp = (m.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0');
+        problems.push(`${rel}: raw U+${cp} — represent it as an explicit \\u escape`);
+      }
+    }
+    fail(problems, 'raw invisible characters');
+  });
+
+  // ── 9. Cross-fixture referential integrity ───────────────────
   test('referential integrity — FK-bearing valid fixtures point at ids that exist in the corpus', () => {
     const problems: string[] = [];
     for (const e of valids) {
@@ -460,7 +480,7 @@ async function runTests(): Promise<void> {
     fail(problems, 'referential integrity violations');
   });
 
-  // ── 9. Schema version tag ────────────────────────────────────
+  // ── 10. Schema version tag ───────────────────────────────────
   test("schema version — corpus is tagged SCHEMA_VERSION '1.1'", () => {
     assert(SCHEMA_VERSION === '1.1', `SCHEMA_VERSION is ${SCHEMA_VERSION}; migration work must bump consciously`);
   });
