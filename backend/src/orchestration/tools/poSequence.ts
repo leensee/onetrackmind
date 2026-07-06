@@ -37,18 +37,17 @@ export interface PoSequenceDbClient {
 // preserves the interface so Phase 7 can swap in a real
 // implementation without touching orchestratorTools.ts.
 
-let warnedAboutPlaceholder = false;
-
 export function createInMemoryPoSequenceStore(
   seed?: Record<string, number>
 ): PoSequenceDbClient {
   const counters = new Map<string, number>(
     seed ? Object.entries(seed) : []
   );
+  let warnedAboutPlaceholder = false;
 
   return {
     async allocateNext(userId: string): Promise<number> {
-      if (!warnedAboutPlaceholder && process.env.NODE_ENV !== 'test') {
+      if (!warnedAboutPlaceholder && process.env.NODE_ENV === 'production') {
         warnedAboutPlaceholder = true;
         console.warn(
           '[poSequence] Using in-memory placeholder — counter will ' +

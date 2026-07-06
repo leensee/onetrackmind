@@ -27,3 +27,11 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# macOS Finder metadata
+.DS_Store
+
+# Node artifacts at repo root (APM/tooling injection — the real Node project is backend/)
+/node_modules/
+/package.json
+/package-lock.json
