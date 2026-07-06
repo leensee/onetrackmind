@@ -1,0 +1,9 @@
+{
+  "id": "fa0502fa-0502-4502-8502-fa0502fa0502",
+  "provider": "yahoo",
+  "account_identifier": "otm.ops@example.com",
+  "folder": "INBOX",
+  "cursor": "{\"uidValidity\":421977,\"lastSeenUid\":18452}",
+  "last_polled_at": "2026-06-30T05:00:00Z",
+  "is_synced": 1
+}

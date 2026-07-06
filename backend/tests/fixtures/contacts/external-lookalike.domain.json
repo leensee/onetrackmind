@@ -1,0 +1,19 @@
+{
+  "id": "fa0108fa-0108-4108-8108-fa0108fa0108",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Dispatch (Roadway Freight LLC)",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "dispatchh@example.com"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

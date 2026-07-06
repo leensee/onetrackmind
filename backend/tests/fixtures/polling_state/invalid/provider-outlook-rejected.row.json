@@ -1,0 +1,9 @@
+{
+  "id": "fa0847fa-0847-4847-8847-fa0847fa0847",
+  "provider": "outlook",
+  "account_identifier": "inv-847@example.com",
+  "folder": "INBOX",
+  "cursor": null,
+  "last_polled_at": null,
+  "is_synced": 1
+}

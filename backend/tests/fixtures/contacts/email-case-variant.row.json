@@ -1,0 +1,12 @@
+{
+  "id": "fa0113fa-0113-4113-8113-fa0113fa0113",
+  "created_at": "2026-05-01T00:00:00Z",
+  "display_name": "Casey Kim",
+  "channels": "[\"email\"]",
+  "identifiers": "[{\"channel\":\"email\",\"value\":\"Casey.Kim@Example.com\"}]",
+  "tone_level": 5,
+  "status": "active",
+  "is_internal_channel": 0,
+  "recognition_metadata": "{}",
+  "is_synced": 1
+}

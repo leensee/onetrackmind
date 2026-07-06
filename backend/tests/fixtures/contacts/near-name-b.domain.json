@@ -1,0 +1,19 @@
+{
+  "id": "fa010bfa-010b-410b-810b-fa010bfa010b",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Sam Carters",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "sam.carters@example.com"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

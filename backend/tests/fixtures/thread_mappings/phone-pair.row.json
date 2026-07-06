@@ -1,0 +1,9 @@
+{
+  "id": "fa0403fa-0403-4403-8403-fa0403fa0403",
+  "identifier_type": "phone_pair",
+  "identifier_value": "+15550142|+15550198",
+  "provider": "twilio",
+  "thread_key": "tk-inbound-sms-base",
+  "created_at": "2026-06-05T10:00:00Z",
+  "is_synced": 1
+}

@@ -1,0 +1,19 @@
+{
+  "id": "fa0102fa-0102-4102-8102-fa0102fa0102",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Morgan Reyes",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "morgan.reyes@example.com"
+    }
+  ],
+  "toneLevel": 10,
+  "status": "active",
+  "isInternalChannel": true,
+  "recognitionMetadata": {},
+  "isSynced": true
+}
