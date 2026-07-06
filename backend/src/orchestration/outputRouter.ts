@@ -63,6 +63,7 @@ import {
   RouteResult,
   FailedRecipient,
 } from './types';
+import { SMS_MARKDOWN_PATTERNS } from './formatters';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -112,18 +113,15 @@ export class OutputRouterError extends Error {
 // Sentence-boundary split with hard-truncation fallback.
 
 export function formatForSms(text: string): string[] {
-  // Step 1: Strip markdown
-  // TODO(OR-3, issue #25): replace the regex list below with
-  // SMS_MARKDOWN_PATTERNS from './formatters' so detection (preflight
-  // Rule 6) and removal (this function) share one source of truth.
-  const stripped = text
-    .replace(/^#{1,6}\s+/gm, '')       // headers
-    .replace(/\*\*/g, '')               // bold
-    .replace(/\*/g, '')                 // italic
-    .replace(/`{1,3}/g, '')            // code ticks
-    .replace(/^\|.*\|$/gm, '')         // table rows
-    .replace(/^[-*]\s+/gm, '')         // list markers
-    .replace(/\n{3,}/g, '\n\n')        // collapse excess newlines
+  // Step 1: Strip markdown — compose g-flagged replacers from the shared
+  // detection patterns so detection (preflight Rule 6) and removal share
+  // one source of truth.
+  const replacers = SMS_MARKDOWN_PATTERNS.map(
+    p => new RegExp(p.source, p.flags + 'g')
+  );
+  const stripped = replacers
+    .reduce((s, r) => s.replace(r, ''), text)
+    .replace(/\n{3,}/g, '\n\n')        // collapse excess newlines (format-only)
     .trim();
 
   // Step 2: Split into SMS_MAX_CHARS segments at sentence boundaries
