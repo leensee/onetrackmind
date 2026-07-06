@@ -376,6 +376,56 @@ async function runTests(): Promise<void> {
     }
   });
 
+  // ── 7b. fetchUserSettings — prototype-pollution keys rejected ─
+  await test('fetchUserSettings skips prototype-pollution keys without polluting Object prototype', async () => {
+    const originalWarn = console.warn;
+    const warnings: string[] = [];
+    console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
+    try {
+      const db = makeMockDb({
+        userSettings: {
+          data: [
+            { setting_key: '__proto__',    setting_value: '{"injected":true}' },
+            { setting_key: 'constructor',  setting_value: 'polluted' },
+            { setting_key: 'toString',     setting_value: 'overwritten' },
+            { setting_key: 'digestThresholdHours', setting_value: '5' },
+          ],
+          error: null,
+        },
+      });
+      const result = await fetchUserSettings('user-001', 'otm-v1-mechanic', db);
+
+      // Known key must still be applied — pollution keys must not abort processing.
+      assert(result.digestThresholdHours === 5, 'known key after pollution keys must still be applied');
+
+      // All three prototype-pollution keys must have triggered a warning.
+      assert(
+        warnings.some(w => w.includes('__proto__')),
+        'must warn about __proto__ key'
+      );
+      assert(
+        warnings.some(w => w.includes('constructor')),
+        'must warn about constructor key'
+      );
+      assert(
+        warnings.some(w => w.includes('toString')),
+        'must warn about toString key'
+      );
+
+      // Object prototype must not have been mutated.
+      assert(
+        (({} as Record<string, unknown>)['injected']) === undefined,
+        'Object prototype must not be polluted via __proto__ key'
+      );
+      assert(
+        typeof ({}).toString === 'function' && ({}).toString() === '[object Object]',
+        'Object prototype toString must remain the native function'
+      );
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+
   // ── 8. loadContext — parallel fetch, assembled output ──────
   await test('loadContext returns assembled ContextLoaderOutput', async () => {
     const db = makeMockDb({

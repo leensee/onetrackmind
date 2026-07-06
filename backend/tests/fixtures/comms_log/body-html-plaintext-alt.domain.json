@@ -1,0 +1,28 @@
+{
+  "id": "fa0213fa-0213-4213-8213-fa0213fa0213",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-outlook-body-html-plaintext-alt",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e6a2e0e8e4c6a4c4a2e6e6e0a0a4c4c0e8e8a6e0c6c0e6c8e6c4a8a4e4e8e6e8",
+  "threadKey": "tk-body-html-plaintext-alt",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "<html><body><p>Service scheduled for <b>Friday</b>.</p><div class=\"sig\">Alex Rivera</div></body></html>",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

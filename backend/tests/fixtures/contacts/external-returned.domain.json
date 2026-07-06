@@ -1,0 +1,22 @@
+{
+  "id": "fa0105fa-0105-4105-8105-fa0105fa0105",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Casey Brook",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "casey.brook@example.com"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {
+    "previousStatus": "archived",
+    "returnedAt": "2026-05-20T00:00:00Z"
+  },
+  "isSynced": true
+}

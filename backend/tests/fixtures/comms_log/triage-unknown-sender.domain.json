@@ -1,0 +1,28 @@
+{
+  "id": "fa0206fa-0206-4206-8206-fa0206fa0206",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-outlook-triage-unknown-sender",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e6e0c4a4e8a2e6c4c6a2e0e2c0e8c4c6a0e8e4c0c2c4a0a6e2c8c8a8c2c0c2a0",
+  "threadKey": "tk-triage-unknown-sender",
+  "fromIdentifier": "unknown.sender@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Confirming the pump 14 service window for Friday morning.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": null,
+  "topicTag": null,
+  "triageLabel": "unknown_sender",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": "2026-06-05T13:00:00Z",
+  "userActionTaken": "none"
+}

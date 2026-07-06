@@ -1,0 +1,10 @@
+{
+  "id": "fa0832fa-0832-4832-8832-fa0832fa0832",
+  "key_type": "provider_id",
+  "provider": "outlook",
+  "key_value": "pm-outlook-inbound-email-base",
+  "first_seen_at": "2026-06-05T10:00:00Z",
+  "expires_at": "2026-09-03T10:00:00Z",
+  "linked_message_id": null,
+  "is_synced": 1
+}
