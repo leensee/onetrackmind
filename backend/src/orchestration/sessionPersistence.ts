@@ -306,15 +306,25 @@ export async function replaySessionLog(
 
     // Unparseable payload is corruption, not forward-compat — surface it.
     // Resolves 2026-04-16-SP-7.
-    let data: Record<string, unknown>;
+    let parsed: unknown;
     try {
-      data = JSON.parse(row.payload) as Record<string, unknown>;
+      parsed = JSON.parse(row.payload);
     } catch (err) {
       throw new SessionPersistenceError(
         `Unparseable payload entryId=${row.entryId}: ${(err as Error).message}`,
         sessionId, 'replaySessionLog', 'invalid_payload'
       );
     }
+
+    // Shape check: payload must be a plain non-null, non-array object.
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      const shape = parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed;
+      throw new SessionPersistenceError(
+        `Non-object payload entryId=${row.entryId}: got ${shape}`,
+        sessionId, 'replaySessionLog', 'invalid_payload'
+      );
+    }
+    const data = parsed as Record<string, unknown>;
 
     // Apply typed state mutation — exhaustive switch, no fall-through
     switch (row.entryType) {
