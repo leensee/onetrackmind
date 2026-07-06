@@ -56,6 +56,12 @@ export function validateRecipients(recipients: string[]): string | null {
 // discriminated-union type encodes most of these invariants for TS callers —
 // model-originated tool input is typed but never runtime-checked upstream.
 export function validateCommsDraftInput(input: CommsDraftInput): string | null {
+  // Runtime shape guard: input must be a non-null object. Without this check a
+  // bare null/primitive value from malformed JSON would throw on property access.
+  if (typeof (input as unknown) !== 'object' || (input as unknown) === null) {
+    return 'input must be a non-null object';
+  }
+
   // Widened to string: the union narrows `channel` to 'sms' | 'email', so a
   // literal comparison below would otherwise trip TS2367 at runtime-guard sites.
   const channel: string = input.channel;
@@ -65,17 +71,23 @@ export function validateCommsDraftInput(input: CommsDraftInput): string | null {
   const recipientsError = validateRecipients(input.recipients);
   if (recipientsError) return recipientsError;
 
-  if (!input.body || input.body.trim() === '') {
-    return 'body must not be empty';
+  // Widen to unknown before typeof: the fields are typed `string` by the union
+  // but can arrive as any JSON value at the model/API boundary. Calling .trim()
+  // on a non-string would throw, violating the "Never throws" contract.
+  const body: unknown = input.body;
+  if (typeof body !== 'string' || body.trim() === '') {
+    return 'body must be a non-empty string';
   }
   const toneError = validateToneLevel(input.toneLevel);
   if (toneError) return toneError;
 
   if (input.channel === 'email') {
-    if (!input.subject || input.subject.trim() === '') {
-      return 'subject must not be empty for email channel';
+    const subject: unknown = input.subject;
+    if (typeof subject !== 'string' || subject.trim() === '') {
+      return 'subject must be a non-empty string for email channel';
     }
-    if (input.replyTo !== undefined && input.replyTo.trim() === '') {
+    const replyTo: unknown = input.replyTo;
+    if (replyTo !== undefined && (typeof replyTo !== 'string' || replyTo.trim() === '')) {
       return 'replyTo must not be empty string when provided';
     }
   }

@@ -1,0 +1,9 @@
+{
+  "id": "fa0849fa-0849-4849-8849-fa0849fa0849",
+  "provider": "yahoo",
+  "account_identifier": "inv-849@example.com",
+  "folder": "INBOX",
+  "cursor": null,
+  "last_polled_at": null,
+  "is_synced": 2
+}

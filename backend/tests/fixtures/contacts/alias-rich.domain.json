@@ -1,0 +1,29 @@
+{
+  "id": "fa010cfa-010c-410c-810c-fa010cfa010c",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Alexandra Rivera-Marsh",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "alexandra.rm@example.com"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {
+    "aliases": [
+      "Alex",
+      "A. Rivera",
+      "Lex"
+    ],
+    "signatureNames": [
+      "Alexandra R."
+    ],
+    "notes": "signs as Lex on SMS"
+  },
+  "isSynced": true
+}

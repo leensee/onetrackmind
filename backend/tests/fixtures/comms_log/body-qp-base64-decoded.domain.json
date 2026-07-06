@@ -1,0 +1,28 @@
+{
+  "id": "fa0214fa-0214-4214-8214-fa0214fa0214",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-outlook-body-qp-base64-decoded",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e4a4e2a4c4c4e2e0e6a6a0c0a8c6c2c6c6c8e4e6c6a2a2c6e5e4c8a8c6e4a8e6",
+  "threadKey": "tk-body-qp-base64-decoded",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Café crème confirmed ✓ — détails to follow (decoded from quoted-printable and base64 legs).",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

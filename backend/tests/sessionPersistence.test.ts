@@ -322,6 +322,81 @@ async function runTests(): Promise<void> {
     assert(err.message.includes('e-bad'), 'message must include entryId');
   });
 
+  await test('replaySessionLog: null JSON payload throws invalid_payload', async () => {
+    const entry: SessionLogEntry = {
+      entryId:       'e-null',
+      sessionId:     SESSION_ID,
+      userId:        USER_ID,
+      entryType:     'user_message',
+      payload:       'null',
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      timestamp:     '2026-04-11T08:00:00.000Z',
+    };
+    const db: SqliteClient = {
+      async run() { /* no-op */ },
+      async get<T>() { return undefined as T; },
+      async all<T>() { return [entry] as unknown as T[]; },
+    };
+    const err = await assertThrows(
+      () => replaySessionLog(SESSION_ID, USER_ID, db),
+      'SessionPersistenceError',
+      'must throw on null payload'
+    );
+    assert(err.cause === 'invalid_payload', `cause must be invalid_payload, got ${err.cause}`);
+    assert(err.message.includes('e-null'), 'message must include entryId');
+    assert(err.message.includes('null'), 'message must mention null');
+  });
+
+  await test('replaySessionLog: array JSON payload throws invalid_payload', async () => {
+    const entry: SessionLogEntry = {
+      entryId:       'e-array',
+      sessionId:     SESSION_ID,
+      userId:        USER_ID,
+      entryType:     'user_message',
+      payload:       '["a","b"]',
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      timestamp:     '2026-04-11T08:00:00.000Z',
+    };
+    const db: SqliteClient = {
+      async run() { /* no-op */ },
+      async get<T>() { return undefined as T; },
+      async all<T>() { return [entry] as unknown as T[]; },
+    };
+    const err = await assertThrows(
+      () => replaySessionLog(SESSION_ID, USER_ID, db),
+      'SessionPersistenceError',
+      'must throw on array payload'
+    );
+    assert(err.cause === 'invalid_payload', `cause must be invalid_payload, got ${err.cause}`);
+    assert(err.message.includes('e-array'), 'message must include entryId');
+    assert(err.message.includes('array'), 'message must mention array');
+  });
+
+  await test('replaySessionLog: primitive JSON payload throws invalid_payload', async () => {
+    const entry: SessionLogEntry = {
+      entryId:       'e-prim',
+      sessionId:     SESSION_ID,
+      userId:        USER_ID,
+      entryType:     'user_message',
+      payload:       '42',
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      timestamp:     '2026-04-11T08:00:00.000Z',
+    };
+    const db: SqliteClient = {
+      async run() { /* no-op */ },
+      async get<T>() { return undefined as T; },
+      async all<T>() { return [entry] as unknown as T[]; },
+    };
+    const err = await assertThrows(
+      () => replaySessionLog(SESSION_ID, USER_ID, db),
+      'SessionPersistenceError',
+      'must throw on primitive payload'
+    );
+    assert(err.cause === 'invalid_payload', `cause must be invalid_payload, got ${err.cause}`);
+    assert(err.message.includes('e-prim'), 'message must include entryId');
+    assert(err.message.includes('number'), 'message must mention number');
+  });
+
   await test('replaySessionLog: missing required string field throws invalid_payload (SP-6)', async () => {
     // session_open payload missing editionId
     const entry = makeLogEntry('session_open', {

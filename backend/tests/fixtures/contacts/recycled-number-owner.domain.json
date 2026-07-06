@@ -1,0 +1,19 @@
+{
+  "id": "fa010efa-010e-410e-810e-fa010efa010e",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Quinn Harbor",
+  "channels": [
+    "sms"
+  ],
+  "identifiers": [
+    {
+      "channel": "sms",
+      "value": "+1555 0178"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

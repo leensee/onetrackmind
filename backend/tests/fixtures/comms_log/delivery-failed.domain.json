@@ -1,0 +1,28 @@
+{
+  "id": "fa0217fa-0217-4217-8217-fa0217fa0217",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "outbound",
+  "providerMessageId": "pm-outlook-delivery-failed",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "e6a0e8a6a4a2a0c8c6c2a4c6e6a4c8a8e4a8e4a8c4a2c4a4e8e2c8a0e2c6e8e8",
+  "threadKey": "tk-delivery-failed",
+  "fromIdentifier": "otm.owner@example.com",
+  "toIdentifiers": [
+    "alex.rivera@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Confirming the pump 14 service window for Friday morning.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": "failed",
+  "deliveryDetail": "SMTP 550 5.1.1 mailbox unavailable",
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

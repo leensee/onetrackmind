@@ -1,0 +1,19 @@
+{
+  "id": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Alex Rivera",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "alex.rivera@example.com"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

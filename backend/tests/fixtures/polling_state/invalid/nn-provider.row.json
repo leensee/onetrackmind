@@ -1,0 +1,9 @@
+{
+  "id": "fa084bfa-084b-484b-884b-fa084bfa084b",
+  "provider": null,
+  "account_identifier": "inv-84b@example.com",
+  "folder": "INBOX",
+  "cursor": null,
+  "last_polled_at": null,
+  "is_synced": 1
+}

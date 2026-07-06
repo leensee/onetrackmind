@@ -1,0 +1,19 @@
+{
+  "id": "fa0115fa-0115-4115-8115-fa0115fa0115",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Casey Kim (mobile)",
+  "channels": [
+    "email"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": " casey.kim@example.com "
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

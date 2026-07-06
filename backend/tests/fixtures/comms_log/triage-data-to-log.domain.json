@@ -1,0 +1,28 @@
+{
+  "id": "fa0205fa-0205-4205-8205-fa0205fa0205",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "yahoo",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-yahoo-triage-data-to-log",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "a2e6a8a0e0c0a2e4e4e0e6c6c4e4a0c6c8c6a2a6a8e0c8c6a6e8e4c6e6c6c6c4",
+  "threadKey": "tk-triage-data-to-log",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Confirming the pump 14 service window for Friday morning.",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

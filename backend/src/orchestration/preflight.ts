@@ -12,9 +12,11 @@ import { SMS_MARKDOWN_PATTERNS } from './formatters';
 
 // ── Rule 1: Autonomous Action Detected ───────────────────────
 // Severity: hold
-// Skipped when postApproval === true.
-// Catches past-tense action language suggesting the system
-// acted without explicit user approval.
+// Skipped when postApproval === true OR actionWasInvoked === true.
+// Defense-in-depth text heuristic: only runs when the orchestrator
+// state signal says no action actually fired this turn. Catches
+// past-tense action language that would indicate a hallucinated
+// claim of action. Ground truth lives in actionWasInvoked.
 
 const AUTONOMOUS_PATTERNS: string[] = [
   "i've sent",
@@ -46,9 +48,10 @@ function checkAutonomousAction(
 
 // ── Rule 2: Outbound Draft Without Gate ───────────────────────
 // Severity: hold
-// Skipped when postApproval === true.
-// Fires when a response contains outbound draft indicators
-// but no visible approval gate marker.
+// Skipped when postApproval === true OR gateWasInvoked === true.
+// Defense-in-depth text heuristic: only runs when the orchestrator
+// state signal says no approval gate fired this turn. Ground truth
+// lives in gateWasInvoked.
 
 const OUTBOUND_INDICATORS: RegExp[] = [
   /^to:/im,
@@ -308,8 +311,10 @@ function checkSmsFormatViolation(
 export function runPreflight(input: PreflightInput): PreflightResult {
   const flags: PreflightFlag[] = [];
 
-  if (!input.postApproval) {
+  if (!input.postApproval && !input.actionWasInvoked) {
     checkAutonomousAction(input, flags);
+  }
+  if (!input.postApproval && !input.gateWasInvoked) {
     checkOutboundDraftWithoutGate(input, flags);
   }
 
