@@ -1,0 +1,24 @@
+{
+  "id": "fa010dfa-010d-410d-810d-fa010dfa010d",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Pat Denton",
+  "channels": [
+    "email",
+    "sms"
+  ],
+  "identifiers": [
+    {
+      "channel": "email",
+      "value": "pat.denton@example.com"
+    },
+    {
+      "channel": "sms",
+      "value": "+1555 0155"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

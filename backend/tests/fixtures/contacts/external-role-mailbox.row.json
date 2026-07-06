@@ -1,0 +1,12 @@
+{
+  "id": "fa0107fa-0107-4107-8107-fa0107fa0107",
+  "created_at": "2026-05-01T00:00:00Z",
+  "display_name": "Dispatch (Roadway Freight)",
+  "channels": "[\"email\"]",
+  "identifiers": "[{\"channel\":\"email\",\"value\":\"dispatch@example.com\"}]",
+  "tone_level": 0,
+  "status": "active",
+  "is_internal_channel": 0,
+  "recognition_metadata": "{}",
+  "is_synced": 1
+}

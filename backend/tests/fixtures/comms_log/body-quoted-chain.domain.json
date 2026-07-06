@@ -1,0 +1,28 @@
+{
+  "id": "fa020efa-020e-420e-820e-fa020efa020e",
+  "createdAt": "2026-06-05T10:00:00Z",
+  "provider": "outlook",
+  "channel": "email",
+  "direction": "inbound",
+  "providerMessageId": "pm-outlook-body-quoted-chain",
+  "idempotencyProvenance": "provider_id",
+  "contentHash": "c8a6c2e2c2c6a2c0a8e2e0a8e4c6e4a4c8c0c6e4a0c4c6e4e0c8c2c2c0a4c0a2",
+  "threadKey": "tk-body-quoted-chain",
+  "fromIdentifier": "alex.rivera@example.com",
+  "toIdentifiers": [
+    "otm.owner@example.com"
+  ],
+  "subject": "Pump 14 service window",
+  "body": "Works for us.\n\n> On Jun 4, 2026, Alex Rivera wrote:\n> Can we move the service window to Friday?\n>> Original request was Thursday.\n\n--\nAlex Rivera\nRoadway Freight\n\n---------- Forwarded message ----------\nFrom: dispatch@example.com\nSubject: Service window",
+  "providerTimestamp": "2026-06-05T09:59:30Z",
+  "contactId": "fa0103fa-0103-4103-8103-fa0103fa0103",
+  "topicTag": null,
+  "triageLabel": "data_to_log",
+  "timeSensitivityFlag": "none",
+  "deliveryState": null,
+  "deliveryDetail": null,
+  "fallbackLegUsed": null,
+  "isSynced": true,
+  "userAcknowledgedAt": null,
+  "userActionTaken": null
+}

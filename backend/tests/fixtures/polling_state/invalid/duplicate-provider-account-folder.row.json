@@ -1,0 +1,9 @@
+{
+  "id": "fa0848fa-0848-4848-8848-fa0848fa0848",
+  "provider": "yahoo",
+  "account_identifier": "otm.owner@example.com",
+  "folder": "INBOX",
+  "cursor": null,
+  "last_polled_at": null,
+  "is_synced": 1
+}

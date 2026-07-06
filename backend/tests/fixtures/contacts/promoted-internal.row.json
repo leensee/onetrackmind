@@ -1,0 +1,12 @@
+{
+  "id": "fa0109fa-0109-4109-8109-fa0109fa0109",
+  "created_at": "2026-05-01T00:00:00Z",
+  "display_name": "Sam Porter",
+  "channels": "[\"email\"]",
+  "identifiers": "[{\"channel\":\"email\",\"value\":\"sam.porter@example.com\"}]",
+  "tone_level": 5,
+  "status": "active",
+  "is_internal_channel": 1,
+  "recognition_metadata": "{\"promotedFrom\":\"external\",\"promotedAt\":\"2026-05-01T00:00:00Z\"}",
+  "is_synced": 1
+}

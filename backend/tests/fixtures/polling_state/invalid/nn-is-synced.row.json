@@ -1,0 +1,9 @@
+{
+  "id": "fa084efa-084e-484e-884e-fa084efa084e",
+  "provider": "yahoo",
+  "account_identifier": "inv-84e@example.com",
+  "folder": "INBOX",
+  "cursor": null,
+  "last_polled_at": null,
+  "is_synced": null
+}

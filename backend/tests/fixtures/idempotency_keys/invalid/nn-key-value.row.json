@@ -1,0 +1,10 @@
+{
+  "id": "fa0838fa-0838-4838-8838-fa0838fa0838",
+  "key_type": "provider_id",
+  "provider": "outlook",
+  "key_value": null,
+  "first_seen_at": "2026-06-05T10:00:00Z",
+  "expires_at": "2026-09-03T10:00:00Z",
+  "linked_message_id": null,
+  "is_synced": 1
+}

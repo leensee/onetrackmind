@@ -1,0 +1,12 @@
+{
+  "id": "fa0827fa-0827-4827-8827-fa0827fa0827",
+  "created_at": null,
+  "display_name": "Alex Rivera",
+  "channels": "[\"email\"]",
+  "identifiers": "[{\"channel\":\"email\",\"value\":\"alex.rivera@example.com\"}]",
+  "tone_level": 5,
+  "status": "active",
+  "is_internal_channel": 0,
+  "recognition_metadata": "{}",
+  "is_synced": 1
+}

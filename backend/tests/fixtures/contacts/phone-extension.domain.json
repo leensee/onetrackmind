@@ -1,0 +1,19 @@
+{
+  "id": "fa0111fa-0111-4111-8111-fa0111fa0111",
+  "createdAt": "2026-05-01T00:00:00Z",
+  "displayName": "Front Desk",
+  "channels": [
+    "sms"
+  ],
+  "identifiers": [
+    {
+      "channel": "sms",
+      "value": "555-0144 x12"
+    }
+  ],
+  "toneLevel": 5,
+  "status": "active",
+  "isInternalChannel": false,
+  "recognitionMetadata": {},
+  "isSynced": true
+}

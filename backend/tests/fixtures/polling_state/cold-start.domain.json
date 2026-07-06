@@ -1,0 +1,9 @@
+{
+  "id": "fa0501fa-0501-4501-8501-fa0501fa0501",
+  "provider": "yahoo",
+  "accountIdentifier": "otm.owner@example.com",
+  "folder": "INBOX",
+  "cursor": null,
+  "lastPolledAt": null,
+  "isSynced": false
+}

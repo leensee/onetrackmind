@@ -1,0 +1,9 @@
+{
+  "id": "fa040afa-040a-440a-840a-fa040afa040a",
+  "identifier_type": "phone_pair",
+  "identifier_value": "+15550142|+15550155|+15550198",
+  "provider": "twilio",
+  "thread_key": "tk-group-sms",
+  "created_at": "2026-06-05T10:00:00Z",
+  "is_synced": 1
+}
