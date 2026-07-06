@@ -141,6 +141,45 @@ async function runTests(): Promise<void> {
     assert(!result[0]!.match(/^[-*]\s/m), 'must strip list markers');
   });
 
+  test('formatForSms: parity — strips every SMS_MARKDOWN_PATTERN from one fixture', () => {
+    // One fixture exercising every pattern now shared with preflight via
+    // SMS_MARKDOWN_PATTERNS (OR-3): headers, table rows, list markers (both
+    // - and *), bold, italic, inline + fenced code ticks, and the format-only
+    // excess-newline collapse. Locks detection and removal to one source.
+    const fixture = [
+      '# Header One',
+      '## Header Two',
+      '| col a | col b |',
+      '- dash item',
+      '* star item',
+      '**bold text** and *italic text*',
+      'inline `code` and ```fenced```',
+      '',
+      '',
+      '',
+      'tail line',
+    ].join('\n');
+
+    const out = formatForSms(fixture).join('\n');
+
+    // Every markdown marker removed.
+    assert(!out.includes('#'), 'headers stripped');
+    assert(!out.includes('|'), 'table rows stripped');
+    assert(!out.includes('*'), 'bold/italic/list asterisks stripped');
+    assert(!out.includes('`'), 'code ticks stripped');
+    assert(!out.match(/^[-*]\s/m), 'list markers stripped');
+
+    // Content preserved.
+    for (const kept of ['Header One', 'Header Two', 'dash item', 'star item',
+      'bold text', 'italic text', 'inline code', 'fenced', 'tail line']) {
+      assert(out.includes(kept), `content preserved: ${kept}`);
+    }
+
+    // Ordering lock: list markers strip before italic, so `* star item`
+    // becomes `star item`, not ` star item` (no orphaned leading space).
+    assert(!out.includes(' star item'), 'list marker fully removed, no leading space');
+  });
+
  // ── formatForPush ─────────────────────────────────────────
   // Three explicit states per 2026-04-11 Phase 2 audit fix:
   //   1. no key provided          → encryptedContent omitted, notification fires
