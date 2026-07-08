@@ -7,6 +7,7 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "migrate": "ts-node src/db/migrate.ts",
     "test": "node tests/run-all.mjs",
     "test:assembler":    "ts-node --project tsconfig.test.json tests/promptAssembler.test.ts",
     "test:typeutils":    "ts-node --project tsconfig.test.json tests/typeUtils.test.ts",
