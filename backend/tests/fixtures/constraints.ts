@@ -16,20 +16,58 @@
 // catalog records that via DEVICE_MIRRORS rather than duplicating
 // entries. Ownership rules and the 10-minute content-hash dedup
 // window are enforcedBy 'dal' (the DB cannot express them).
+//
+// The schema vocabulary (table names, enum value lists, device
+// ownership maps) is canonical in src/db/schemaConstants.ts and
+// re-exported here so the ledger, manifest, and meta-test keep
+// their existing import surface.
 // ============================================================
 
-export const SCHEMA_VERSION = '1.1';
+import {
+  SCHEMA_VERSION,
+  BackendTable,
+  DeviceTable,
+  TableName,
+  CL_PROVIDERS,
+  CL_CHANNELS,
+  CL_DIRECTIONS,
+  CL_PROVENANCE,
+  CL_TRIAGE,
+  CL_TIME_SENSITIVITY,
+  CL_DELIVERY_STATES,
+  CL_FALLBACK_LEGS,
+  CL_USER_ACTIONS,
+  CT_STATUSES,
+  IK_KEY_TYPES,
+  TM_IDENTIFIER_TYPES,
+  PS_PROVIDERS,
+  BOOL01,
+  DEVICE_MIRRORS,
+  DEVICE_WRITABLE_COLUMNS,
+  mirrorBase,
+} from '../../src/db/schemaConstants';
 
-export type BackendTable =
-  | 'comms_log'
-  | 'contacts'
-  | 'idempotency_keys'
-  | 'thread_mappings'
-  | 'polling_state';
-
-export type DeviceTable = 'device_comms_log' | 'device_contacts';
-
-export type TableName = BackendTable | DeviceTable;
+export {
+  SCHEMA_VERSION,
+  CL_PROVIDERS,
+  CL_CHANNELS,
+  CL_DIRECTIONS,
+  CL_PROVENANCE,
+  CL_TRIAGE,
+  CL_TIME_SENSITIVITY,
+  CL_DELIVERY_STATES,
+  CL_FALLBACK_LEGS,
+  CL_USER_ACTIONS,
+  CT_STATUSES,
+  IK_KEY_TYPES,
+  TM_IDENTIFIER_TYPES,
+  PS_PROVIDERS,
+  BOOL01,
+  DEVICE_MIRRORS,
+  DEVICE_WRITABLE_COLUMNS,
+  mirrorBase,
+};
+export type { BackendTable, DeviceTable, TableName };
 
 export type ConstraintKind =
   | 'check-enum'
@@ -60,37 +98,6 @@ export interface Constraint {
   partialWhere?: string;
   note?: string;
 }
-
-// ── Enum value lists (shared with manifest/meta-test) ──────────
-export const CL_PROVIDERS = ['outlook', 'yahoo', 'twilio'] as const;
-export const CL_CHANNELS = ['email', 'sms'] as const;
-export const CL_DIRECTIONS = ['inbound', 'outbound'] as const;
-export const CL_PROVENANCE = ['provider_id', 'content_hash_fallback'] as const;
-export const CL_TRIAGE = [
-  'action_required',
-  'data_to_log',
-  'awareness_only',
-  'unknown_sender',
-  'unclear_review',
-] as const;
-export const CL_TIME_SENSITIVITY = ['hard', 'soft', 'none'] as const;
-export const CL_DELIVERY_STATES = ['queued', 'sent', 'delivered', 'failed', 'fallback_used'] as const;
-export const CL_FALLBACK_LEGS = ['sms', 'fcm', 'email'] as const;
-export const CL_USER_ACTIONS = [
-  'requested_draft_reply',
-  'marked_informational',
-  'dismissed',
-  'none',
-] as const;
-export const CT_STATUSES = ['active', 'dismissed', 'archived'] as const;
-export const IK_KEY_TYPES = ['provider_id', 'content_hash'] as const;
-export const TM_IDENTIFIER_TYPES = [
-  'rfc5322_message_id',
-  'provider_conversation_id',
-  'phone_pair',
-] as const;
-export const PS_PROVIDERS = ['yahoo'] as const;
-export const BOOL01 = [0, 1] as const;
 
 // ── Helpers to keep NOT-NULL entries uniform ───────────────────
 function nn(prefix: string, table: BackendTable, column: string): Constraint {
@@ -237,18 +244,6 @@ export const CONSTRAINTS: readonly Constraint[] = [
   },
 ];
 
-// ── Device mirrors: identical column/table CHECKs, not duplicated ──
-export const DEVICE_MIRRORS: Record<DeviceTable, BackendTable> = {
-  device_comms_log: 'comms_log',
-  device_contacts: 'contacts',
-};
-
-/** Columns a device write payload may touch (besides the row id). */
-export const DEVICE_WRITABLE_COLUMNS: Record<DeviceTable, string[]> = {
-  device_comms_log: ['user_acknowledged_at', 'user_action_taken'],
-  device_contacts: [],
-};
-
 // ── Table shapes (drive hydration + content scans in the meta-test) ──
 export interface TableShape {
   columns: string[];
@@ -322,8 +317,3 @@ export const TABLE_SHAPES: Record<TableName, TableShape> = {
   device_comms_log: COMMS_LOG_SHAPE,
   device_contacts: CONTACTS_SHAPE,
 };
-
-/** Resolve a device mirror to the backend table whose shape/constraints it inherits. */
-export function mirrorBase(table: TableName): BackendTable {
-  return (DEVICE_MIRRORS as Record<string, BackendTable>)[table] ?? (table as BackendTable);
-}
