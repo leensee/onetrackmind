@@ -17,59 +17,11 @@
 
 export const RETENTION_REFERENCE_DATE = '2026-07-03T00:00:00Z';
 
-export interface CommsLogRow {
-  id: string;
-  created_at: string;
-  provider: string;
-  channel: string;
-  direction: string;
-  provider_message_id: string | null;
-  idempotency_provenance: string;
-  content_hash: string;
-  thread_key: string;
-  from_identifier: string;
-  to_identifiers: string; // JSON-in-TEXT (array)
-  subject: string | null;
-  body: string;
-  provider_timestamp: string;
-  contact_id: string | null;
-  topic_tag: string | null;
-  triage_label: string;
-  time_sensitivity_flag: string;
-  delivery_state: string | null;
-  delivery_detail: string | null;
-  fallback_leg_used: string | null;
-  is_synced: number;
-  user_acknowledged_at: string | null;
-  user_action_taken: string | null;
-}
+// Canonical Row/Domain types were promoted to src (Phase 4.1 DAL);
+// re-exported here so existing importers keep their surface.
+import { CommsLogRow, CommsLogDomain } from '../../src/db/mapping/commsLog';
 
-export interface CommsLogDomain {
-  id: string;
-  createdAt: string;
-  provider: string;
-  channel: string;
-  direction: string;
-  providerMessageId: string | null;
-  idempotencyProvenance: string;
-  contentHash: string;
-  threadKey: string;
-  fromIdentifier: string;
-  toIdentifiers: unknown;
-  subject: string | null;
-  body: string;
-  providerTimestamp: string;
-  contactId: string | null;
-  topicTag: string | null;
-  triageLabel: string;
-  timeSensitivityFlag: string;
-  deliveryState: string | null;
-  deliveryDetail: string | null;
-  fallbackLegUsed: string | null;
-  isSynced: boolean;
-  userAcknowledgedAt: string | null;
-  userActionTaken: string | null;
-}
+export type { CommsLogRow, CommsLogDomain };
 
 export interface RetentionVariant {
   /** Manifest id suffix, e.g. 'retention-old-synced'. */
@@ -127,7 +79,7 @@ function toDomain(row: CommsLogRow): CommsLogDomain {
     contentHash: row.content_hash,
     threadKey: row.thread_key,
     fromIdentifier: row.from_identifier,
-    toIdentifiers: JSON.parse(row.to_identifiers),
+    toIdentifiers: JSON.parse(row.to_identifiers) as string[],
     subject: row.subject,
     body: row.body,
     providerTimestamp: row.provider_timestamp,
