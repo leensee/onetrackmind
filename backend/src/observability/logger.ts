@@ -31,11 +31,15 @@ export interface Logger {
 // Output style matches the existing console convention:
 //   [Namespace] message key=value key=value
 
-// Renders a single field value. Primitives verbatim; everything
-// else canonical JSON; JSON failures (circular refs) degrade to a
-// marker. Never throws.
+// Renders a single field value. Strings pass through with line
+// breaks escaped — field values often carry attacker-controlled
+// text (message bodies, subjects) and a raw newline would let one
+// forge a convincing "[Namespace] ..." log line. Other primitives
+// verbatim; everything else canonical JSON (which escapes its own
+// newlines); JSON failures (circular refs) degrade to a marker.
+// Never throws.
 export function formatFieldValue(value: unknown): string {
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') return value.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
   if (
     typeof value === 'number' ||
     typeof value === 'boolean' ||

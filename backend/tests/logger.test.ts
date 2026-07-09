@@ -60,6 +60,30 @@ console.log('\n[logger] formatFieldValue');
   assert(formatFieldValue(circular) === '[unserializable]', 'circular object → [unserializable], no throw');
 }
 
+// ── formatFieldValue — log-forgery hardening ──────────────────
+
+console.log('\n[logger] newline escaping (log-line forgery)');
+{
+  assert(
+    formatFieldValue('line1\nline2') === 'line1\\nline2',
+    'LF in string value escaped'
+  );
+  assert(
+    formatFieldValue('a\r\nb') === 'a\\r\\nb',
+    'CRLF in string value escaped'
+  );
+  const forged = formatLogLine('Real', 'stored', { body: 'x\n[Real] forged line' });
+  assert(
+    !forged.includes('\n'),
+    'field value cannot inject a second log line'
+  );
+  // JSON.stringify escapes newlines inside object values on its own.
+  assert(
+    formatFieldValue({ note: 'a\nb' }) === '{"note":"a\\nb"}',
+    'newline inside JSON object value escaped by JSON encoding'
+  );
+}
+
 // ── formatLogLine ─────────────────────────────────────────────
 
 console.log('\n[logger] formatLogLine');

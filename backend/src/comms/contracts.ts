@@ -187,6 +187,9 @@ export const CREDENTIAL_MECHANISMS = ['oauth_bearer', 'app_password'] as const;
 
 export type CredentialMechanism = (typeof CREDENTIAL_MECHANISMS)[number];
 
+// Carries live secrets. Never pass a credential (or its token/
+// password fields) to Logger fields, diagnostic metadata, or any
+// serialized output — log the mechanism and expiresAt at most.
 export type EmailCredential =
   | { mechanism: 'oauth_bearer'; accessToken: string; expiresAt: string | null }
   | { mechanism: 'app_password'; username: string; password: string };
