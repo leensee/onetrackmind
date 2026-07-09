@@ -34,7 +34,9 @@
     "test:migrations":   "ts-node --project tsconfig.test.json tests/migrationRunner.test.ts",
     "test:schema-live":  "ts-node --project tsconfig.test.json tests/schemaEnforcement.test.ts",
     "test:dal-mapping":  "ts-node --project tsconfig.test.json tests/dalMapping.test.ts",
-    "test:dal-constraints": "ts-node --project tsconfig.test.json tests/dalConstraints.test.ts"
+    "test:dal-constraints": "ts-node --project tsconfig.test.json tests/dalConstraints.test.ts",
+    "test:logger":       "ts-node --project tsconfig.test.json tests/logger.test.ts",
+    "test:comms-contracts": "ts-node --project tsconfig.test.json tests/commsContracts.test.ts"
   },
   "keywords": [],
   "author": "",
