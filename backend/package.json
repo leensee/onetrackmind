@@ -36,7 +36,9 @@
     "test:dal-mapping":  "ts-node --project tsconfig.test.json tests/dalMapping.test.ts",
     "test:dal-constraints": "ts-node --project tsconfig.test.json tests/dalConstraints.test.ts",
     "test:logger":       "ts-node --project tsconfig.test.json tests/logger.test.ts",
-    "test:comms-contracts": "ts-node --project tsconfig.test.json tests/commsContracts.test.ts"
+    "test:comms-contracts": "ts-node --project tsconfig.test.json tests/commsContracts.test.ts",
+    "test:content-hash": "ts-node --project tsconfig.test.json tests/contentHash.test.ts",
+    "test:idempotency":  "ts-node --project tsconfig.test.json tests/idempotencyChecker.test.ts"
   },
   "keywords": [],
   "author": "",
