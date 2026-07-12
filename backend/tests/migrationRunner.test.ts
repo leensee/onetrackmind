@@ -303,6 +303,36 @@ async function runTests(): Promise<void> {
       'thread_mappings', 'polling_state', 'schema_migrations']) {
       assert(names.includes(expected), `table ${expected} must exist, have: ${names.join(', ')}`);
     }
+
+    // Exact-set index inventory, reconciled to Notion Schema v1.4
+    // (the design source of truth). A missing name means a designed
+    // index never shipped; an extra name means an index shipped
+    // undocumented — both must fail loudly.
+    const EXPECTED_INDEXES = [
+      // 001_phase4_comms
+      'uq_comms_log_provider_message_id',
+      'uq_idempotency_keys_provider_key_value',
+      'uq_polling_state_provider_account_folder',
+      'uq_thread_mappings_identifier',
+      // 002_idempotency_keys_indexes
+      'ix_idempotency_keys_content',
+      'ix_idempotency_keys_expires',
+      'ix_idempotency_keys_unsynced',
+      // 003_comms_log_thread_mappings_indexes
+      'ix_comms_log_contact',
+      'ix_comms_log_created',
+      'ix_comms_log_thread',
+      'ix_comms_log_unsynced',
+      'ix_thread_mappings_key',
+      'ix_thread_mappings_unsynced',
+    ].sort();
+    const indexes = await client.all<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name", []);
+    const indexNames = indexes.map((i) => i.name);
+    assert(JSON.stringify(indexNames) === JSON.stringify(EXPECTED_INDEXES),
+      `index inventory must match the schema doc exactly.\n`
+      + `    expected: ${EXPECTED_INDEXES.join(', ')}\n`
+      + `    actual:   ${indexNames.join(', ')}`);
     client.close();
   });
 
