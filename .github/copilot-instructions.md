@@ -16,7 +16,7 @@ The **repository root** is legacy Dart-era scaffolding. The root `.gitignore`, a
 ## Backend build & test (run from `backend/`)
 
 - **Build / type-check:** `npm run build` (`tsc`). Type errors are failures; changed code must type-check clean.
-- **Tests:** `npm test` runs per-module suites as `ts-node` scripts via `tsconfig.test.json` (currently 23 suites, ~577 assertions). Changed or new backend logic should come with a matching `tests/<module>.test.ts`.
+- **Tests:** `npm test` runs per-module suites as `tsx` scripts via `tsconfig.test.json` (currently 23 suites, ~577 assertions). Changed or new backend logic should come with a matching `tests/<module>.test.ts`.
 - **Fixtures corpus:** guarded by `tests/fixturesMeta.test.ts`, which enforces manifest↔filesystem sync, synthetic-only identifiers, and a no-invisible-character rule. Respect these invariants when touching `backend/tests/fixtures/`.
 
 ## Conventions

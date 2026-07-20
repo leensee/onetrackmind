@@ -16,7 +16,7 @@ import { runMigrations } from './migrationRunner';
 
 const DEFAULT_DB_PATH = 'data/backend.sqlite3';
 
-// Resolves to backend/migrations from both src/db (ts-node) and
+// Resolves to backend/migrations from both src/db (tsx) and
 // dist/db (compiled) — two levels up from this module's dir.
 const MIGRATIONS_DIR = path.resolve(__dirname, '..', '..', 'migrations');
 
