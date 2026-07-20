@@ -38,14 +38,15 @@
     "test:logger":       "ts-node --project tsconfig.test.json tests/logger.test.ts",
     "test:comms-contracts": "ts-node --project tsconfig.test.json tests/commsContracts.test.ts",
     "test:content-hash": "ts-node --project tsconfig.test.json tests/contentHash.test.ts",
-    "test:idempotency":  "ts-node --project tsconfig.test.json tests/idempotencyChecker.test.ts"
+    "test:idempotency":  "ts-node --project tsconfig.test.json tests/idempotencyChecker.test.ts",
+    "test:comms-log-writer": "ts-node --project tsconfig.test.json tests/commsLogWriter.test.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
+    "@anthropic-ai/sdk": "^0.112.3",
     "@supabase/supabase-js": "^2.100.1",
     "fastify": "^5.8.5"
   },
