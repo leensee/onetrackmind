@@ -1,6 +1,6 @@
 // Consolidated test runner.
 //
-// Discovers every `tests/*.test.ts` and runs each in its own ts-node process.
+// Discovers every `tests/*.test.ts` and runs each in its own tsx process.
 // Unlike the previous `&&` chain, this runs ALL files even when some fail, then
 // prints an aggregate summary and exits non-zero if any file failed — so one
 // early failure no longer hides the rest. New test files are picked up
@@ -8,6 +8,9 @@
 //
 // Each test file remains a standalone process with its own harness
 // (test()/assert(), process.exit(1) on failure), unchanged.
+//
+// tsx strips types without checking them; `npm test` runs `npm run typecheck`
+// (tsc --noEmit over tsconfig.test.json) first so tests stay type-checked.
 
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
@@ -26,7 +29,7 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-// Make the local ts-node binary resolvable even when invoked directly as
+// Make the local tsx binary resolvable even when invoked directly as
 // `node tests/run-all.mjs` (npm already prepends node_modules/.bin under scripts).
 const binDir = join(projectRoot, 'node_modules', '.bin');
 const env = { ...process.env, PATH: `${binDir}:${process.env.PATH ?? ''}` };
@@ -35,8 +38,8 @@ const failed = [];
 for (const file of files) {
   console.log(`\n=== ${file} ===`);
   const res = spawnSync(
-    'ts-node',
-    ['--project', 'tsconfig.test.json', join('tests', file)],
+    'tsx',
+    ['--tsconfig', 'tsconfig.test.json', join('tests', file)],
     { cwd: projectRoot, env, stdio: 'inherit' },
   );
   if (res.error) {

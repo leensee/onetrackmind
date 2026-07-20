@@ -1,6 +1,6 @@
 // ============================================================
 // OTM — Config Loader Tests
-// CJS module. Run via: ts-node backend/tests/configLoader.test.ts
+// CJS module. Run via: tsx backend/tests/configLoader.test.ts
 // Generic module-export reader — no coupling to prompts specifically.
 // ============================================================
 
