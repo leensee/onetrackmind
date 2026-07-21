@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import Flutter
 import UIKit
 
@@ -532,7 +533,8 @@ final class CaptureChannelHandler: NSObject, FlutterStreamHandler {
     }
   }
 
-  @available(iOS 26.0, *)
+  // Held as AnyObject so the stored property needs no availability annotation
+  // (the concrete AVInputPickerInteraction type is iOS 26+).
   private var inputPickerInteraction: AnyObject?
 
   @available(iOS 26.0, *)
