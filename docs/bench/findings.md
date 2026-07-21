@@ -4,15 +4,19 @@ Updated as each question lands, not only at spike end. Evidence = capture metada
 
 ## Q1 — Voice Isolation reachable from a Flutter app on the recording path?
 
-**Status: OPEN** — blocking. If no VP profile surfaces mic modes: stop and report.
+**Status: ANSWERED — YES (2026-07-21, dev iPhone, iOS 26.5.2).** Both VP profiles surface microphone modes; Voice Isolation held on the recording path with logged evidence. Nothing downstream is blocked.
 
 | Item | Result |
 |---|---|
-| `vp-mode` profile (.voiceChat) confers mic-mode eligibility | _pending_ |
-| `vp-engine` profile (setVoiceProcessingEnabled) confers eligibility | _pending_ |
-| `activeMicrophoneMode == voiceIsolation` observed during capture | _pending_ |
-| Format forced by VP path (channels / sample rate) | _pending_ |
-| A/B listen VI vs Standard vs raw | _pending_ |
+| `vp-mode` profile (.voiceChat) confers mic-mode eligibility | **YES** — system sheet listed Automatic / Standard / Voice Isolation during active capture (observed; sheet contents are UI-only). Logged: capture `b63e3e01`, `micModeChanged standard→voiceIsolation` **during** capture, `atStop active: voiceIsolation`, session `PlayAndRecord`/`VoiceChat` |
+| `vp-engine` profile (setVoiceProcessingEnabled) confers eligibility | **YES** — same sheet options. Logged: capture `929fe272`, `active: voiceIsolation` atStart→atStop, `isVoiceProcessingEnabled: true`. Note: profile configures mode `.default`, but enabling engine VP flips the live session to `VoiceChat` (logged atStop mode) |
+| `activeMicrophoneMode == voiceIsolation` observed during capture | **YES** — three captures (`b63e3e01`, `929fe272`, `16c513d2`), polled at 1 Hz during capture |
+| Format forced by VP path (channels / sample rate) | **Mono, 48 kHz** (tap and file, 16-bit WAV) under both VP profiles; the `raw`/`.measurement` control also negotiated mono/48 kHz on the built-in mic |
+| A/B listen VI vs Standard vs raw | **VI near-zero background noise (running water), speech clear and unaffected** vs Standard and raw (operator judgment). Caveat: in the VI take (`16c513d2`) VI was selected at +2.0 s of 23.6 s; sentence spoken after the switch |
+
+Sheet detail (iOS 26): options shown are Automatic / Standard / Voice Isolation — Wide Spectrum was not offered to this app. Mic-mode sheet is empty unless the app has a live mic session (blank blur when idle); eligibility checks must run during capture.
+
+The per-app `preferredMicrophoneMode` persisted across profile switches and captures without re-selection (early positive signal for the Q3 persistence smoke).
 
 ## Q2 — Voice Isolation on third-party Bluetooth input?
 
