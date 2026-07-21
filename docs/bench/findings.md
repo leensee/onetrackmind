@@ -35,14 +35,20 @@ Operational note: after pairing, the inactive session's route showed **no inputs
 
 ## Q3 — Siri shortcut resumes after Face ID unlock?
 
-**Status: OPEN** — blocking. A required screen touch anywhere in the flow is a failure for the gloved entry path.
+**Status: ANSWERED — PASS, both cases (2026-07-21, dev iPhone, iOS 26.5.2).** Gloved, zero-screen-contact entry works warm and cold. Captures `7e0ab901` (warm) / `81fa9427` (cold), both `trigger_source: siri-shortcut`, VI active over the connected BT headset.
 
 | Item | Warm start | Cold start |
 |---|---|---|
-| Continued hands-free after Face ID (no touch) | _pending_ | _pending_ |
-| Capture started (t_intentPerform → t_firstBuffer, ms) | _pending_ | _pending_ |
-| `isProtectedDataAvailable` at perform | _pending_ | _pending_ |
-| Mic-mode per-app persistence across relaunch (smoke) | _pending_ | — |
+| Continued hands-free after Face ID (no touch) | **YES** | **YES** ("no delay at all" — operator) |
+| Capture started (t_intentPerform → t_firstBuffer, ms) | **638 ms** (sessionActive +190, engineStart +382) | **506 ms** (sessionActive +56, engineStart +251) |
+| `isProtectedDataAvailable` at perform | **true** | **true** |
+| Mic-mode per-app persistence across relaunch (smoke) | **PASS** — both captures started with `preferred: voiceIsolation` already set; survived backgrounding, force-quit, relaunch, and a reinstall (same bundle id) | — |
+
+Notes:
+- The intent performs **post-unlock** (`protectedData: true`, `applicationStateAtPerform: 1`) — Face ID completes before `perform()` runs, so `.complete` file protection is compatible with the Siri entry path.
+- `t_appActive` (+550 warm / +814 cold) lands **after** first buffer in both runs — the Swift-side start sequence really does run ahead of app/Flutter activation, as designed; Flutter cold-start cost stays out of the capture path.
+- First-ever Siri invocation raised a one-time "Turn on capture with OneTrackMind?" authorization — **answerable by voice** (no touch); it does not recur.
+- **Harness fix required for Q3 (committed this session):** with `CFBundleDisplayName` = "App", Siri could not bind the phrase ("no app named capture"). Renamed to **OneTrackMind**; phrase "Start OneTrackMind capture" recognized reliably. Any future rename must re-verify the App Shortcut phrase.
 
 ## Q4 — Comparative WER across capture arms (floor device)
 
