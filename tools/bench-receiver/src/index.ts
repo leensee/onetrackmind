@@ -17,6 +17,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 
 import {
   corpusPathsFor,
@@ -119,8 +120,17 @@ async function preflight(env: NodeJS.ProcessEnv, logger: Logger): Promise<Receiv
 
 // ── Server ────────────────────────────────────────────────────
 
-export function buildServer(config: ReceiverConfig, logger: Logger) {
+export async function buildServer(config: ReceiverConfig, logger: Logger) {
   const app = Fastify({ bodyLimit: 64 * 1024 * 1024 });
+
+  // Per-IP rate limit. The device drain loop submits sequentially on a 5 s
+  // tick, so a bench session sits far below this ceiling; the limit exists as
+  // defense-in-depth for the filesystem-writing route. Awaited so the hook is
+  // installed before any route registers — an un-awaited register defers the
+  // plugin past them. The 429 is shaped onto the submission contract in
+  // setErrorHandler below (retryable, so a throttled queue backs off rather
+  // than parking).
+  await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
 
   // Map framework-level errors (JSON parse, body too large) onto the
   // submission contract without leaking request contents.
@@ -128,6 +138,15 @@ export function buildServer(config: ReceiverConfig, logger: Logger) {
     const err = error as { statusCode?: unknown; code?: unknown; message?: unknown };
     const statusCode = typeof err.statusCode === 'number' ? err.statusCode : 500;
     const code = typeof err.code === 'string' ? err.code : undefined;
+    if (statusCode === 429) {
+      reply.status(429).send({
+        ok: false,
+        reason: 'rate_limited',
+        detail: 'rate limit exceeded (120 requests per minute)',
+        retryable: true,
+      });
+      return;
+    }
     if (statusCode >= 400 && statusCode < 500) {
       reply.status(statusCode).send({
         ok: false,
@@ -239,7 +258,7 @@ async function main(): Promise<void> {
   const logger = createConsoleLogger();
   const config = await preflight(process.env, logger);
   await fs.mkdir(config.corpusDir, { recursive: true });
-  const app = buildServer(config, logger);
+  const app = await buildServer(config, logger);
   await app.listen({ host: config.bindAddr, port: config.port });
   logger.info('bench receiver up', {
     bind: `${config.bindAddr}:${config.port}`,

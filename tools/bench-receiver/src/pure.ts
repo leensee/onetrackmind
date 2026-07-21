@@ -16,6 +16,7 @@ import * as path from 'node:path';
 export type BenchFailureReason =
   | 'auth_failed'
   | 'invalid_input'
+  | 'rate_limited'
   | 'storage_error';
 
 export type BenchResult<T> =

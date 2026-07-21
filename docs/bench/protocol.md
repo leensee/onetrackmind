@@ -25,7 +25,7 @@ Results land in [findings.md](findings.md) as each question is answered. Utteran
    - Device-side behavior is unchanged by this exception: audio deletes from the phone immediately on confirmed receipt.
 2. **SQLCipher (§3.3).** The spike queue is JSON sidecars + files, not encrypted SQLite. Conditions: iOS file protection is set to the **complete** class explicitly (the platform default leaves files readable after first unlock); the harness records in code that the **production capture queue uses SQLCipher per §3.3, unchanged** — this file queue is not a precedent.
 3. **Receiver auth (§2.1).** The bench receiver authenticates by shared secret, not Supabase JWT. It is arguably not a backend API endpoint at all — it never mounts on the production backend — but "never mounted" is enforced **structurally**, not by intention: separate package with no import path from the backend app; binds one specific LAN interface, never all-interfaces; refuses to start without a secret configured (no default, no fallback); never logs request bodies (§5.4 applies unchanged).
-4. **Fastify dependency** in the isolated `tools/bench-receiver/` package. Approved — already the backend's framework, so not new to the project.
+4. **Fastify dependency** in the isolated `tools/bench-receiver/` package. Approved — already the backend's framework, so not new to the project. Also carries the official `@fastify/rate-limit` plugin (per-IP, 120/min): added to clear a CodeQL `js/missing-rate-limiting` finding on the corpus-write route and kept as defense-in-depth.
 
 ### Corpus deletion record
 
