@@ -170,7 +170,15 @@ export async function buildServer(config: ReceiverConfig, logger: Logger) {
 
   app.get('/health', async () => ({ status: 'ok', service: 'otm-bench-receiver' }));
 
-  app.post('/v1/captures', async (request, reply) => {
+  // The per-route rateLimit config is the plugin's documented route-level
+  // override; it duplicates the global limit deliberately — CodeQL's
+  // js/missing-rate-limiting model only recognizes per-route config (or the
+  // legacy unscoped fastify-rate-limit import), not a scoped-package global
+  // registration.
+  const captureRouteOpts = {
+    config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
+  };
+  app.post('/v1/captures', captureRouteOpts, async (request, reply) => {
     const provided = request.headers['x-otm-bench-secret'];
     const providedValue = Array.isArray(provided) ? provided[0] : provided;
     if (!secretMatches(providedValue, config.secret)) {
