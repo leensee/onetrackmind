@@ -20,16 +20,18 @@ The per-app `preferredMicrophoneMode` persisted across profile switches and capt
 
 ## Q2 — Voice Isolation on third-party Bluetooth input?
 
-**Status: OPEN** — blocking. Protocol-level result via clip headset (air-conduction class; transfers to the user's headsets at protocol level, not mic quality).
+**Status: ANSWERED — YES (2026-07-21, dev iPhone, iOS 26.5.2; Shokz OpenDots ONE clip headset as air-conduction proxy).** VI holds on the BT recording path at protocol level; `builtin-mounted-fixed` does **not** activate. Result transfers to the user's headsets at protocol level only — mic quality does not transfer.
 
 | Item | Result |
 |---|---|
-| BT input portType observed (`bluetoothHFP` / `bluetoothLE`) | _pending_ |
-| Negotiated input sample rate on BT (codec inference) | _pending_ |
-| Mic-mode sheet offers VI with BT input active | _pending_ |
-| `activeMicrophoneMode` holds VI on BT, or falls back to standard | _pending_ |
-| `bt-hq` (iOS 26 high-quality BT recording) available / behavior | _pending_ |
-| **Consequence:** `builtin-mounted-fixed` arm activated? | _pending_ |
+| BT input portType observed (`bluetoothHFP` / `bluetoothLE`) | **`BluetoothHFP`** ("OpenDots ONE by Shokz") |
+| Negotiated input sample rate on BT (codec inference) | **16 000 Hz ⇒ mSBC** (wideband HFP; not CVSD, not LE Audio). Captured file: mono 16 kHz 16-bit WAV — the codec cap flows through to the corpus format |
+| Mic-mode sheet offers VI with BT input active | **YES** — Automatic / Standard / Voice Isolation, observed during capture (same options as built-in mic) |
+| `activeMicrophoneMode` holds VI on BT, or falls back to standard | **HOLDS** — capture `5cc55eb4`: `atStop active: voiceIsolation` with `BluetoothHFP` input, 16 kHz throughout; no fallback event |
+| `bt-hq` (iOS 26 high-quality BT recording) available / behavior | **API present, engagement headset-dependent.** Profile configures cleanly; capture `e1c8f39e` logs `bluetoothHighQualityRecording` in active session options — but route stayed `BluetoothHFP` @ 16 kHz (this headset lacks HQ support). VI unaffected under the option |
+| **Consequence:** `builtin-mounted-fixed` arm activated? | **NO** — VI-over-BT is alive; the headset arms stand as planned |
+
+Operational note: after pairing, the inactive session's route showed **no inputs** ­— the BT input only claimed the route on session reactivation (bench workaround: re-select the profile to force deactivate→configure→activate). The field runbook's per-arm step "verify snapshot route matches the arm" already covers this.
 
 ## Q3 — Siri shortcut resumes after Face ID unlock?
 
