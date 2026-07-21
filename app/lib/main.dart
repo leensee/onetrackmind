@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'bench/bench_screen.dart';
+
 void main() {
   runApp(const OTMApp());
 }
@@ -11,14 +13,7 @@ class OTMApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       title: 'OneTrackMind',
-      home: Scaffold(
-        body: Center(
-          child: Text(
-            'OneTrackMind',
-            style: TextStyle(fontSize: 24),
-          ),
-        ),
-      ),
+      home: BenchScreen(),
     );
   }
 }

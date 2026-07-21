@@ -35,3 +35,9 @@ doc/api/
 /node_modules/
 /package.json
 /package-lock.json
+
+# Nested Node packages (backend/, tools/bench-receiver/)
+node_modules/
+
+# Python bytecode (tools/wer)
+__pycache__/
