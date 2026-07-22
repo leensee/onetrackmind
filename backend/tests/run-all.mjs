@@ -11,6 +11,8 @@
 //
 // tsx strips types without checking them; `npm test` runs `npm run typecheck`
 // (tsc --noEmit over tsconfig.test.json) first so tests stay type-checked.
+// CI gates on this runner via the required `test` check; the required
+// `lint` check runs the ESLint gate (eslint.config.mjs) separately.
 
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
