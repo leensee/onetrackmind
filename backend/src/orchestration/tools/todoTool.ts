@@ -73,10 +73,10 @@ export function validateCreateInput(input: TodoCreateInput): string | null {
   if (!input.description || input.description.trim() === '') {
     return 'description must not be empty';
   }
-  if (!(VALID_CATEGORIES as string[]).includes(input.category)) {
+  if (!VALID_CATEGORIES.some(v => v === input.category)) {
     return `category must be one of: ${VALID_CATEGORIES.join(', ')}`;
   }
-  if (!(VALID_TIME_SENSITIVITIES as string[]).includes(input.timeSensitivity)) {
+  if (!VALID_TIME_SENSITIVITIES.some(v => v === input.timeSensitivity)) {
     return `timeSensitivity must be one of: ${VALID_TIME_SENSITIVITIES.join(', ')}`;
   }
   if (input.dueDate !== undefined) {
@@ -97,7 +97,7 @@ export function validateUpdateInput(input: TodoUpdateInput): string | null {
   if (!input.todoId || input.todoId.trim() === '') {
     return 'todoId must not be empty';
   }
-  if (!(VALID_TERMINAL_STATUSES as readonly string[]).includes(input.status)) {
+  if (!VALID_TERMINAL_STATUSES.some(v => v === input.status)) {
     return `status must be one of: ${VALID_TERMINAL_STATUSES.join(', ')}`;
   }
   return null;

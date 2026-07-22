@@ -81,7 +81,7 @@ export function validateInput(input: DiagnosticLogInput): string | null {
   if (!input.category || input.category.trim() === '') {
     return 'category must not be empty';
   }
-  if (!(VALID_SEVERITIES as string[]).includes(input.severity)) {
+  if (!VALID_SEVERITIES.some(v => v === input.severity)) {
     return `severity must be one of: ${VALID_SEVERITIES.join(', ')}; got: ${input.severity}`;
   }
   return null;

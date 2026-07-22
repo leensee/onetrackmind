@@ -117,16 +117,14 @@ export function parsePurchaseMethod(text: string): PurchaseMethod {
   // Card with last four digits
   const cardMatch = text.match(/(?:card|visa|mastercard|amex|credit|debit)[^\d]*(\d{4})/i);
   if (cardMatch) {
-    const method: PurchaseMethod = { type: 'card' };
-    if (cardMatch[1]) (method as { type: 'card'; lastFour?: string }).lastFour = cardMatch[1];
-    return method;
+    const lastFour = cardMatch[1];
+    return lastFour ? { type: 'card', lastFour } : { type: 'card' };
   }
   // Account charge
   const accountMatch = text.match(/(?:charged?\s+to|account|acct)[^\w]*([A-Z0-9\-]{3,20})/i);
   if (accountMatch) {
-    const method: PurchaseMethod = { type: 'account' };
-    if (accountMatch[1]) (method as { type: 'account'; accountRef?: string }).accountRef = accountMatch[1];
-    return method;
+    const accountRef = accountMatch[1];
+    return accountRef ? { type: 'account', accountRef } : { type: 'account' };
   }
   // Cash
   if (/\bcash\b/i.test(text)) return { type: 'cash' };

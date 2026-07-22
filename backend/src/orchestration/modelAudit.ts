@@ -148,13 +148,12 @@ export function parseAuditResponse(raw: string): ModelAuditResult {
   const obj = parsed as Record<string, unknown>;
   const validResults: AuditResult[] = ['pass', 'flag', 'revise'];
 
-  if (!validResults.includes(obj['result'] as AuditResult)) {
+  const result = validResults.find(v => v === obj['result']);
+  if (result === undefined) {
     throw new Error(
       `Audit response "result" must be pass|flag|revise, got: "${String(obj['result'])}"`
     );
   }
-
-  const result = obj['result'] as AuditResult;
 
   // Enforce that non-pass results carry actionable issue and correction fields.
   // A revise or flag with no correction leaves the orchestrator with nothing to act on.
