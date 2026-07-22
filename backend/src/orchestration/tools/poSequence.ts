@@ -49,6 +49,7 @@ export function createInMemoryPoSequenceStore(
     async allocateNext(userId: string): Promise<number> {
       if (!warnedAboutPlaceholder && process.env.NODE_ENV === 'production') {
         warnedAboutPlaceholder = true;
+        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
         console.warn(
           '[poSequence] Using in-memory placeholder — counter will ' +
           'reset on process restart and does not span processes. ' +

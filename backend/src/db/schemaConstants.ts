@@ -88,5 +88,6 @@ export const DEVICE_WRITABLE_COLUMNS: Record<DeviceTable, string[]> = {
 
 /** Resolve a device mirror to the backend table whose shape/constraints it inherits. */
 export function mirrorBase(table: TableName): BackendTable {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): const lookup-table widening for mirror mapping
   return (DEVICE_MIRRORS as Record<string, BackendTable>)[table] ?? (table as BackendTable);
 }

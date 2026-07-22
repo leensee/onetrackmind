@@ -240,6 +240,7 @@ export function classifyEvent(input: RawInput): ProcessedEvent {
   const metadata = buildMetadata(input);
 
   // Log classification — no body content, no PII beyond session/request IDs
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[EventClassifier] requestId=${input.requestId} source=${input.source} ` +
     `eventType=${eventType} sessionId=${input.sessionId}` +

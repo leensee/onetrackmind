@@ -225,6 +225,7 @@ export async function parseExpense(
         return { ok: false, error: 'image extraction returned empty text' };
       }
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       return { ok: false, error: `image extraction failed: ${(err as Error).message}` };
     }
   }

@@ -88,6 +88,7 @@ export async function primaryCall(
   const { assemblerOutput, sessionId, requestId } = input;
   const startMs = Date.now();
 
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[PrimaryCall] start requestId=${requestId} sessionId=${sessionId} ` +
     `model=${PRIMARY_CALL_MODEL} estimatedInputTokens=${assemblerOutput.tokenEstimate}`
@@ -111,6 +112,7 @@ export async function primaryCall(
   });
 
   try {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
     stream = client.messages.stream({
       model:       PRIMARY_CALL_MODEL,
       max_tokens:  PRIMARY_CALL_MAX_TOKENS,
@@ -154,6 +156,7 @@ export async function primaryCall(
 
     const durationMs = Date.now() - startMs;
 
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(
       `[PrimaryCall] complete requestId=${requestId} sessionId=${sessionId} ` +
       `durationMs=${durationMs} inputTokens=${finalMessage.usage.input_tokens} ` +
@@ -176,7 +179,9 @@ export async function primaryCall(
     // Re-throw domain errors without wrapping
     if (err instanceof PrimaryCallError) throw err;
 
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
     const error = err as Error;
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(
       `[PrimaryCall] error requestId=${requestId} sessionId=${sessionId} ` +
       `cause=api_error message=${sanitizeErrorMessage(error.message)}`

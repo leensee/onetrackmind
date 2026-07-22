@@ -42,6 +42,7 @@ export function extractObject(
 ): Record<string, unknown> | undefined {
   const val = obj[key];
   return val !== null && typeof val === 'object' && !Array.isArray(val)
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: typeUtils encapsulates unknown->T narrowing (otm#85)
     ? (val as Record<string, unknown>)
     : undefined;
 }
@@ -92,5 +93,6 @@ export function extractOneOf<T extends string>(
   const val = obj[key];
   if (typeof val !== 'string') return undefined;
   // Cast is safe: gated by the includes() membership check above.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: typeUtils encapsulates unknown->T narrowing (otm#85)
   return (allowed as readonly string[]).includes(val) ? (val as T) : undefined;
 }

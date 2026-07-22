@@ -94,12 +94,15 @@ export function parseContactIdentifiers(text: string): MapResult<ContactIdentifi
   for (const item of parsed) {
     if (
       typeof item !== 'object' || item === null || Array.isArray(item) ||
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): DAL validation internals, checked field-by-field
       typeof (item as Record<string, unknown>).channel !== 'string' ||
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): DAL validation internals, checked field-by-field
       typeof (item as Record<string, unknown>).value !== 'string'
     ) {
       return { ok: false, reason: 'wrong_shape', detail: CT_IDENTIFIERS_SHAPE_MSG };
     }
   }
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): DAL validation internals, checked field-by-field
   return { ok: true, value: parsed as ContactIdentifier[] };
 }
 

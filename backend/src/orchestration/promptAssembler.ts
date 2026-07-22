@@ -104,6 +104,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const dynamicTokens    = estimateTokens(dynamicInjection);
 
   // Unconditional metric — surfaces context loader drift over time.
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[PromptAssembler] Dynamic injection: ${dynamicTokens} tokens (cap: ${dynamicCap}).`
   );
@@ -111,6 +112,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // Warn if dynamic injection exceeds soft cap — non-fatal.
   // Surfaces for context loader tuning.
   if (dynamicTokens > dynamicCap) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[PromptAssembler] Dynamic injection ${dynamicTokens} tokens exceeds ` +
       `soft cap ${dynamicCap}. Consider tightening context loader filtering.`
@@ -130,6 +132,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   if (turnsTrimmed > 0) {
     // Orchestrator uses historyTrimmed + historyTurnsTrimmed to write session log entry.
     // Assembler surfaces the signal — logging is the orchestrator's responsibility.
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[PromptAssembler] Trimmed ${turnsTrimmed} conversation turn(s) to fit context window.`
     );

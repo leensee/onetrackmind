@@ -203,6 +203,7 @@ export async function writePurchaseOrder(
         IS_NOT_SYNCED,
       ]
     );
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(
       `[PoGenerator] PO written poNumber=${order.poNumber} ` +
       `vendor=${order.vendorName} subtotal=${order.subtotal} ` +
@@ -211,6 +212,7 @@ export async function writePurchaseOrder(
     return null;
   } catch (err) {
     return new PoWriteError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Write failed: ${(err as Error).message}`,
       order.sessionId, requestId, 'write_error'
     );

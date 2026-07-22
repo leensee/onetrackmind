@@ -35,6 +35,7 @@ export function sendApprovalRequest(
     wsSend(buildApprovalMessage(requestId, content));
   } catch (err) {
     throw new ApprovalGateError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Failed to send approval request: ${(err as Error).message}`,
       requestId,
       'send_error'
@@ -52,6 +53,7 @@ export function sendRegenLimitMessage(
     wsSend(buildRegenLimitMessage(requestId, draft, auditFlag));
   } catch (err) {
     throw new ApprovalGateError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Failed to send regen limit message: ${(err as Error).message}`,
       requestId,
       'send_error'
@@ -92,6 +94,7 @@ export async function submitFeedback(
   // Orchestrator passes env.githubFeedbackToken here; undefined is valid
   // pre-Phase 4 and the gate owns this path — no orchestrator decision needed.
   if (!token) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[ApprovalGate] GITHUB_FEEDBACK_TOKEN not configured — attempting email fallback ` +
       `sessionId=${payload.sessionId}`
@@ -99,18 +102,22 @@ export async function submitFeedback(
     if (fallbackEmailFn) {
       try {
         await fallbackEmailFn(payload);
+        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
         console.info(
           `[ApprovalGate] feedback submitted via email fallback (no token) ` +
           `sessionId=${payload.sessionId}`
         );
         return;
       } catch (emailErr) {
+        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
         console.error(
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
           `[ApprovalGate] email fallback failed (no token): ${(emailErr as Error).message}`
         );
       }
     }
     // No token and no fallback, or fallback failed — log metadata only, throw.
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(
       `[ApprovalGate] no feedback channels available — logging metadata: ` +
       `sessionId=${payload.sessionId} timestamp=${payload.timestamp} ` +
@@ -165,23 +172,29 @@ export async function submitFeedback(
     }
 
     githubSucceeded = true;
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(
       `[ApprovalGate] feedback submitted to GitHub sessionId=${payload.sessionId}`
     );
   } catch (githubErr) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `[ApprovalGate] GitHub feedback submission failed: ${(githubErr as Error).message}`
     );
 
     if (fallbackEmailFn) {
       try {
         await fallbackEmailFn(payload);
+        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
         console.info(
           `[ApprovalGate] feedback submitted via email fallback sessionId=${payload.sessionId}`
         );
         return;
       } catch (emailErr) {
+        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
         console.error(
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
           `[ApprovalGate] email fallback also failed: ${(emailErr as Error).message}`
         );
       }
@@ -190,6 +203,7 @@ export async function submitFeedback(
     if (!githubSucceeded) {
       // Both paths failed — log metadata only for tracing; full payload not logged
       // to avoid operational content in error logs. Content is unrecoverable at this point.
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.error(
         `[ApprovalGate] all feedback channels failed — logging metadata for tracing: ` +
         `sessionId=${payload.sessionId} timestamp=${payload.timestamp} ` +

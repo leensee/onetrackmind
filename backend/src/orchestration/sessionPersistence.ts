@@ -113,6 +113,7 @@ export function serializePayload(
       ok:      false,
       reason:  'invalid_type',
       fields:  ['(serialization)'],
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       message: `${entryType}: JSON serialization failed: ${(err as Error).message}`,
     };
   }
@@ -129,6 +130,7 @@ export async function writeLogEntry(
 ): Promise<SessionPersistenceError | null> {
   const serializeResult = serializePayload(
     entry.entryType,
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): JSON.parse boundary, shape owned by caller contract
     JSON.parse(entry.payload) as Record<string, unknown>
   );
 
@@ -169,6 +171,7 @@ export async function writeLogEntry(
     return null;
   } catch (err) {
     return new SessionPersistenceError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `SQLite write failed: ${(err as Error).message}`,
       entry.sessionId,
       'writeLogEntry',
@@ -204,6 +207,7 @@ export async function updateStateObject(
     return null;
   } catch (err) {
     return new SessionPersistenceError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `State object UPSERT failed: ${(err as Error).message}`,
       state.sessionId,
       'updateStateObject',
@@ -235,6 +239,7 @@ export async function replaySessionLog(
     );
   } catch (err) {
     throw new SessionPersistenceError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Log read failed: ${(err as Error).message}`,
       sessionId,
       'replaySessionLog',
@@ -297,6 +302,7 @@ export async function replaySessionLog(
 
   for (const row of rows) {
     if (row.schemaVersion !== CURRENT_SCHEMA_VERSION) {
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.warn(
         `[SessionPersistence] skipping entry entryId=${row.entryId} ` +
         `schemaVersion=${row.schemaVersion} (current=${CURRENT_SCHEMA_VERSION})`
@@ -311,6 +317,7 @@ export async function replaySessionLog(
       parsed = JSON.parse(row.payload);
     } catch (err) {
       throw new SessionPersistenceError(
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
         `Unparseable payload entryId=${row.entryId}: ${(err as Error).message}`,
         sessionId, 'replaySessionLog', 'invalid_payload'
       );
@@ -324,6 +331,7 @@ export async function replaySessionLog(
         sessionId, 'replaySessionLog', 'invalid_payload'
       );
     }
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
     const data = parsed as Record<string, unknown>;
 
     // Apply typed state mutation — exhaustive switch, no fall-through
@@ -386,6 +394,7 @@ export async function replaySessionLog(
 
       default: {
         const exhaustiveCheck: never = row.entryType;
+        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
         console.warn(
           `[SessionPersistence] unrecognized entryType: ${String(exhaustiveCheck)}`
         );
@@ -415,13 +424,16 @@ export async function openSession(
       [sessionId]
     );
     if (row) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): JSON.parse boundary, shape owned by caller contract
       state = JSON.parse(row.state_json) as SessionState;
       state.isFromLogReplay = false;
     }
   } catch (err) {
     // Cache read failure is non-fatal — fall through to replay
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[SessionPersistence] state cache read failed, falling back to replay: ` +
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `${(err as Error).message}`
     );
   }
@@ -431,6 +443,7 @@ export async function openSession(
     try {
       state = await replaySessionLog(sessionId, userId, db);
     } catch (replayErr) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       const pe = replayErr as SessionPersistenceError;
       if (pe.cause === 'replay_error') {
         // No log entries — fresh session
@@ -478,6 +491,7 @@ export async function openSession(
   // Run retention purge
   const purge = await purgeExpiredLogs(userId, retentionDays, db);
 
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[SessionPersistence] openSession sessionId=${sessionId} ` +
     `isFromLogReplay=${state.isFromLogReplay} ` +
@@ -523,6 +537,7 @@ export async function purgeExpiredLogs(
   // Baseline: 90-day default / 180-day max. Never trust caller to cap this.
   const clampedDays = Math.min(retentionDays, MAX_RETENTION_DAYS);
   if (clampedDays !== retentionDays) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[SessionPersistence] retentionDays=${retentionDays} exceeds MAX_RETENTION_DAYS=${MAX_RETENTION_DAYS} — clamped to ${clampedDays}`
     );
@@ -570,8 +585,10 @@ export async function purgeExpiredLogs(
     );
   } catch (err) {
     // Purge failure is logged but non-fatal — session continues
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(
       `[SessionPersistence] purge failed for userId=${userId}: ` +
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `${(err as Error).message}`
     );
   }

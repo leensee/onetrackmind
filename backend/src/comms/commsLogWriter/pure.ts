@@ -146,10 +146,10 @@ export function assembleCommsLogRecord(
       };
     default: {
       const impossible: never = input;
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- never-branch diagnostic formatting on the exhaustive switch (otm#85)
+      const impossibleDirection = (impossible as { direction?: unknown }).direction;
       throw new Error(
-        `assembleCommsLogRecord: malformed input direction ${String(
-          (impossible as { direction?: unknown }).direction,
-        )}`,
+        `assembleCommsLogRecord: malformed input direction ${String(impossibleDirection)}`,
       );
     }
   }

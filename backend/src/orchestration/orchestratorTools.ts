@@ -88,6 +88,7 @@ export async function dispatchToolCall(
       const { draft } = draftResult;
       const gate = await runGate(
         draft.requestId, formatDraftForApproval(draft), tool, deps
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       ).catch(err => ({ gateErr: (err as Error).message }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
@@ -113,6 +114,7 @@ export async function dispatchToolCall(
       const { draft } = draftResult;
       const gate = await runGate(
         call.input.requestId, formatDraftForApproval(draft), tool, deps
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       ).catch(err => ({ gateErr: (err as Error).message }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
@@ -142,6 +144,7 @@ export async function dispatchToolCall(
       const { order, document } = genResult;
       const gate = await runGate(
         call.input.requestId, formatDraftForApproval(document), tool, deps
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       ).catch(err => ({ gateErr: (err as Error).message }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
@@ -177,6 +180,7 @@ export async function dispatchToolCall(
     // ── log_diagnostic: system-initiated direct write ──────
     case 'log_diagnostic': {
       const writeResult = await logDiagnosticEntry(
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
         call.input as DiagnosticLogInput, deps.db
       );
       if (writeResult) return { status: 'error', tool, error: writeResult.message };
@@ -187,7 +191,9 @@ export async function dispatchToolCall(
       const exhaustiveCheck: never = call;
       return {
         status: 'error',
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- never-branch diagnostic formatting on the exhaustive switch (otm#85)
         tool:   String((exhaustiveCheck as { tool: string }).tool),
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- never-branch diagnostic formatting on the exhaustive switch (otm#85)
         error:  `Unrecognized tool: ${String((exhaustiveCheck as { tool: string }).tool)}`,
       };
     }

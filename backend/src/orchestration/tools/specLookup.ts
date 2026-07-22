@@ -201,6 +201,7 @@ export async function fetchRoster(db: SpecLookupDbClient): Promise<MachineRoster
     try {
       return mapRosterRow(row);
     } catch {
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.warn(
         `[SpecLookup] skipping malformed roster row index=${idx} machine_id=${row.machine_id}`
       );
@@ -239,6 +240,7 @@ export async function specLookup(
     return {
       status:  'error',
       cause:   'db_error',
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       message: `Roster fetch failed [sessionId=${sessionId} requestId=${requestId}]: ${(err as Error).message}`,
     };
   }
@@ -271,6 +273,7 @@ export async function specLookup(
     return {
       status:  'error',
       cause:   'db_error',
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       message: `Spec fetch failed [machineId=${machine.machineId} sessionId=${sessionId}]: ${(err as Error).message}`,
     };
   }

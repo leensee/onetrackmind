@@ -98,8 +98,10 @@ export function serializeMetadata(
   try {
     return JSON.stringify(metadata);
   } catch (err) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[DiagnosticLogger] metadata serialization failed — omitting: ` +
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `${(err as Error).message}`
     );
     return null;
@@ -150,6 +152,7 @@ export async function logDiagnosticEntry(
       ]
     );
 
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(
       `[DiagnosticLogger] entry written entryId=${entryId} ` +
       `category=${input.category} severity=${input.severity} ` +
@@ -159,6 +162,7 @@ export async function logDiagnosticEntry(
     return null;
   } catch (err) {
     return new DiagnosticLogError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Write failed: ${(err as Error).message}`,
       input.sessionId,
       input.requestId,
@@ -179,6 +183,7 @@ export async function purgeOldDiagnostics(
 ): Promise<DiagnosticPurgeResult> {
   const clampedDays = Math.min(retentionDays, DIAGNOSTIC_MAX_RETENTION_DAYS);
   if (clampedDays !== retentionDays) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[DiagnosticLogger] retentionDays=${retentionDays} exceeds max ` +
       `${DIAGNOSTIC_MAX_RETENTION_DAYS} — clamped`
@@ -203,6 +208,7 @@ export async function purgeOldDiagnostics(
       [userId, cutoff]
     );
 
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(
       `[DiagnosticLogger] purge complete userId=${userId} ` +
       `entriesDeleted=${entriesDeleted} purgedBefore=${cutoff}`
@@ -210,8 +216,10 @@ export async function purgeOldDiagnostics(
 
     return { entriesDeleted, purgedBefore: cutoff };
   } catch (err) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(
       `[DiagnosticLogger] purge failed userId=${userId}: ` +
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `${(err as Error).message}`
     );
     return { entriesDeleted: 0, purgedBefore: cutoff };

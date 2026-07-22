@@ -178,13 +178,16 @@ export function formatForPush(
     } catch (err) {
       // Encryption failed — omit fullContent, notification still fires.
       // Never transmit plaintext on key failure.
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.error(
         `[OutputRouter] FCM payload encryption failed — fullContent omitted: ` +
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
         `${(err as Error).message}`
       );
     }
   } else {
     // Key not configured — omit fullContent, notification still fires.
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       '[OutputRouter] FCM_PAYLOAD_KEY not configured — fullContent omitted from push payload.'
     );
@@ -226,6 +229,7 @@ export async function routeToApp(
       channel:      'app',
       success:      false,
       delivered:    [],
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       failed:       [{ recipient: 'app', reason: (err as Error).message }],
       segmentCount: 0,
       requestId:    instruction.requestId,
@@ -262,6 +266,7 @@ export async function routeToSms(
       try {
         await smsSend(recipient, segment);
       } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
         failed.push({ recipient, reason: (err as Error).message });
         recipientFailed = true;
         break; // Stop sending segments to this recipient on failure
@@ -310,6 +315,7 @@ export async function routeToPush(
       await pushSend(token, payload);
       delivered.push(token);
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       failed.push({ recipient: token, reason: (err as Error).message });
     }
   }
@@ -325,6 +331,7 @@ export async function routeToPush(
 }
 
 export function routeToLog(instruction: RouteInstruction): RouteResult {
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[OutputRouter] log-only requestId=${instruction.requestId} ` +
     `sessionId=${instruction.sessionId}`
