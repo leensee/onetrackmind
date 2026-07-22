@@ -6,6 +6,10 @@ on:
   push:
     branches: [main]
 
+# Least privilege for GITHUB_TOKEN: both jobs only check out and run npm.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: test
