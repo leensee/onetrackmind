@@ -59,7 +59,12 @@ export function validatePoInput(input: PoGenerateInput): string | null {
     return 'lineItems must contain at least one item';
   }
   for (let i = 0; i < input.lineItems.length; i++) {
-    const item = input.lineItems[i]!;
+    const item = input.lineItems[i];
+    if (item === undefined) {
+      // External input: a sparse/undefined element is a validation
+      // failure in-contract, not a TypeError two lines later.
+      return `lineItems[${i}] must be an object`;
+    }
     if (!item.description || item.description.trim() === '') {
       return `lineItems[${i}].description must not be empty`;
     }
@@ -154,7 +159,7 @@ export function buildPoGenerateResult(
   const validationError = validatePoInput(input);
   if (validationError) return { ok: false, error: validationError };
 
-  const date     = input.issuedDate ?? new Date().toISOString().split('T')[0]!;
+  const date     = input.issuedDate ?? new Date().toISOString().slice(0, 10);
   const poNumber = generatePoNumber(date, sequenceNumber);
   const subtotal = computeSubtotal(input.lineItems);
   const order    = buildPurchaseOrder(input, poNumber, subtotal, date);

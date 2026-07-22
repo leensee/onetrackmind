@@ -90,7 +90,7 @@ export function parseDate(text: string): string | null {
     const match = text.match(pattern);
     if (match) {
       const d = new Date(match[0]);
-      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]!;
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
     }
   }
   return null;
@@ -108,8 +108,9 @@ export function parseAmount(text: string): number | null {
   const amounts = matches
     .map(m => parseFloat(m.replace(/[$,\s]/g, '')))
     .filter(n => !isNaN(n) && n > 0);
-  if (amounts.length === 0) return null;
-  return amounts[amounts.length - 1]!;
+  const last = amounts[amounts.length - 1];
+  if (last === undefined) return null; // undefined ⟺ no amounts matched
+  return last;
 }
 
 export function parsePurchaseMethod(text: string): PurchaseMethod {
@@ -203,15 +204,23 @@ export async function parseExpense(
   let rawText: string;
 
   if (input.inputType === 'text') {
-    rawText = input.text!.trim();
+    // validateParseInput guarantees text for text input; if that
+    // coupling ever drifts, fail in-contract rather than assert.
+    if (input.text === undefined) {
+      return { ok: false, error: 'text is required for text input' };
+    }
+    rawText = input.text.trim();
   } else {
     if (!extractor) {
       return { ok: false, error: 'imageExtractor is required for image input but was not provided' };
     }
+    if (input.imageBytes === undefined || input.imageMimeType === undefined) {
+      return { ok: false, error: 'imageBytes and imageMimeType are required for image input' };
+    }
     try {
       rawText = await extractor.extractText(
-        input.imageBytes!,
-        input.imageMimeType!,
+        input.imageBytes,
+        input.imageMimeType,
         IMAGE_EXTRACTION_PROMPT
       );
       if (!rawText || rawText.trim() === '') {

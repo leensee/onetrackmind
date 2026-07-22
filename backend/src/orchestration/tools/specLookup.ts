@@ -122,8 +122,11 @@ export function resolveMachineIdentifier(
   const exactMatches = roster.filter(m =>
     m.commonNames.some(cn => cn.toLowerCase() === qLower)
   );
-  if (exactMatches.length === 1) return { status: 'found',     machine:    exactMatches[0]! };
-  if (exactMatches.length  > 1)  return { status: 'ambiguous', candidates: exactMatches };
+  const [exactOnly, ...exactRest] = exactMatches;
+  if (exactOnly !== undefined && exactRest.length === 0) {
+    return { status: 'found', machine: exactOnly };
+  }
+  if (exactRest.length > 0) return { status: 'ambiguous', candidates: exactMatches };
 
   // Step 5: Common name contains
   const containsMatches = roster.filter(m =>
@@ -132,8 +135,11 @@ export function resolveMachineIdentifier(
       return cnLower.includes(qLower) || qLower.includes(cnLower);
     })
   );
-  if (containsMatches.length === 1) return { status: 'found',     machine:    containsMatches[0]! };
-  if (containsMatches.length  > 1)  return { status: 'ambiguous', candidates: containsMatches };
+  const [containsOnly, ...containsRest] = containsMatches;
+  if (containsOnly !== undefined && containsRest.length === 0) {
+    return { status: 'found', machine: containsOnly };
+  }
+  if (containsRest.length > 0) return { status: 'ambiguous', candidates: containsMatches };
 
   return { status: 'not_found' };
 }

@@ -48,7 +48,6 @@ function requireConfigModule(configPath: string, exportName: string): unknown {
 
   for (const candidatePath of candidatePaths) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require(candidatePath);
     } catch (err) {
       lastError = err as Error;
