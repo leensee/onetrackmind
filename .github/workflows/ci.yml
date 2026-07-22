@@ -26,3 +26,22 @@ jobs:
         run: npm run build
       - name: Test
         run: npm test
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      # No --max-warnings: no-warning-comments (TODO/FIXME sweep) is
+      # warn by design and must never gate.
+      - name: Lint
+        run: npm run lint
