@@ -73,10 +73,10 @@ export function validateCreateInput(input: TodoCreateInput): string | null {
   if (!input.description || input.description.trim() === '') {
     return 'description must not be empty';
   }
-  if (!(VALID_CATEGORIES as string[]).includes(input.category)) {
+  if (!VALID_CATEGORIES.some(v => v === input.category)) {
     return `category must be one of: ${VALID_CATEGORIES.join(', ')}`;
   }
-  if (!(VALID_TIME_SENSITIVITIES as string[]).includes(input.timeSensitivity)) {
+  if (!VALID_TIME_SENSITIVITIES.some(v => v === input.timeSensitivity)) {
     return `timeSensitivity must be one of: ${VALID_TIME_SENSITIVITIES.join(', ')}`;
   }
   if (input.dueDate !== undefined) {
@@ -97,7 +97,7 @@ export function validateUpdateInput(input: TodoUpdateInput): string | null {
   if (!input.todoId || input.todoId.trim() === '') {
     return 'todoId must not be empty';
   }
-  if (!(VALID_TERMINAL_STATUSES as readonly string[]).includes(input.status)) {
+  if (!VALID_TERMINAL_STATUSES.some(v => v === input.status)) {
     return `status must be one of: ${VALID_TERMINAL_STATUSES.join(', ')}`;
   }
   return null;
@@ -112,7 +112,9 @@ export function serializeTodoMetadata(
   try {
     return JSON.stringify(metadata);
   } catch (err) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `[TodoTool] metadata serialization failed — omitting: ${(err as Error).message}`
     );
     return null;
@@ -172,6 +174,7 @@ export async function writeTodo(
         draft.metadataJson, timestamp, IS_NOT_SYNCED,
       ]
     );
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(
       `[TodoTool] todo written todoId=${todoId} category=${draft.category} ` +
       `timeSensitivity=${draft.timeSensitivity} sessionId=${draft.sessionId}`
@@ -179,6 +182,7 @@ export async function writeTodo(
     return null;
   } catch (err) {
     return new TodoWriteError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Write failed: ${(err as Error).message}`,
       draft.sessionId, draft.requestId, 'write_error'
     );
@@ -223,6 +227,7 @@ export async function updateTodoStatus(
     );
   } catch (err) {
     return new TodoWriteError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Todo lookup failed: ${(err as Error).message}`,
       input.sessionId, input.requestId, 'write_error'
     );
@@ -242,6 +247,7 @@ export async function updateTodoStatus(
     );
   } catch (err) {
     return new TodoWriteError(
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       `Status update failed: ${(err as Error).message}`,
       input.sessionId, input.requestId, 'write_error'
     );
@@ -253,13 +259,16 @@ export async function updateTodoStatus(
     } catch (err) {
       // TimeLog write failure is non-fatal — todo is already marked done.
       // Will be re-attempted when TimeLog is implemented in Phase 7.
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.warn(
         `[TodoTool] TimeLog write skipped todoId=${input.todoId}: ` +
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
         `${(err as Error).message}`
       );
     }
   }
 
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[TodoTool] todo updated todoId=${input.todoId} ` +
     `status=${input.status} sessionId=${input.sessionId}`

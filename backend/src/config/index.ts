@@ -27,14 +27,17 @@ function logStartupStatus(result: Readonly<OtmEnv>): void {
   const present = optional.filter(v =>  v.present).map(v => v.label);
   const absent  = optional.filter(v => !v.present).map(v => v.label);
 
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     '[Env] Required vars loaded: FCM_PAYLOAD_KEY, ANTHROPIC_API_KEY, ' +
     'SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY'
   );
   if (present.length > 0) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(`[Env] Optional vars present: ${present.join(', ')}`);
   }
   if (absent.length > 0) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.warn(
       `[Env] Optional vars absent (expected for current phase): ${absent.join(', ')}`
     );

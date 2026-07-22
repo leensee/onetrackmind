@@ -80,11 +80,14 @@ export async function fetchStyleProfile(
 
   // No rows = first session. Empty string is valid — not an error.
   if (!data || data.length === 0) {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(`[ContextLoader] fetchStyleProfile userId=${userId} result=empty (first session)`);
     return '';
   }
 
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
   const row = data[0] as { summary: string };
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[ContextLoader] fetchStyleProfile userId=${userId} resultLength=${row.summary.length}chars`
   );
@@ -157,6 +160,7 @@ export function coerceSetting(key: keyof UserSettings, raw: string): CoerceResul
     try {
       parsed = JSON.parse(raw);
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       return { ok: false, reason: 'malformed_json', detail: (err as Error).message };
     }
     if (!Array.isArray(parsed)) {
@@ -165,10 +169,12 @@ export function coerceSetting(key: keyof UserSettings, raw: string): CoerceResul
     if (!parsed.every(v => typeof v === 'string')) {
       return { ok: false, reason: 'wrong_shape', detail: 'array contained non-string element' };
     }
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
     return { ok: true, value: parsed as string[] };
   }
 
   const allowed: readonly string[] | undefined =
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
     (UNION_VALUES as Partial<Record<keyof UserSettings, readonly string[]>>)[key];
   if (allowed && !allowed.includes(raw)) {
     return {
@@ -201,7 +207,9 @@ export async function fetchUserSettings(
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
   const rows: SettingRow[] = (data ?? []) as SettingRow[];
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[ContextLoader] fetchUserSettings userId=${userId} editionId=${editionId} rows=${rows.length}`
   );
@@ -210,12 +218,14 @@ export async function fetchUserSettings(
   // Cast through unknown to satisfy exactOptionalPropertyTypes — the
   // index write is safe because key is constrained to keyof UserSettings.
   const settings: UserSettings = { ...DEFAULT_USER_SETTINGS };
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
   const settingsMap = settings as unknown as Record<string, unknown>;
 
   for (const row of rows) {
     // Unknown keys warn-and-continue — treated as forward-compat drift,
     // same pattern as schemaVersion mismatch in sessionPersistence.
     if (!isUserSettingsKey(row.setting_key)) {
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.warn(
         `[ContextLoader] unknown user_settings key=${row.setting_key} userId=${userId} — skipping`
       );
@@ -352,6 +362,7 @@ export function filterContextForEvent(
   }
 
   // Fallback — unknown event type: safety flags only, no consist context
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.warn(
     `[ContextLoader] filterContextForEvent: unhandled eventType='${eventType}' — returning safety flags only.`
   );
@@ -383,6 +394,7 @@ export async function loadContext(
   const contextualData = filterContextForEvent(event, sessionState, editionConfig);
 
   const durationMs = Date.now() - startMs;
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[ContextLoader] loadContext sessionId=${sessionState.sessionId} ` +
     `userId=${userId} editionId=${editionId} durationMs=${durationMs}`

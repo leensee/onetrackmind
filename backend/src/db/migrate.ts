@@ -35,13 +35,16 @@ async function main(): Promise<number> {
       const where = result.version !== undefined
         ? ` in ${result.version}_${result.migrationName}`
         : '';
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.error(`migrate: FAILED (${result.cause}${where}) — ${result.detail}`);
       return 1;
     }
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.log(
       `migrate: ${result.applied.length} applied, ${result.skippedCount} skipped (db: ${dbPath})`
     );
     for (const m of result.applied) {
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.log(`  applied ${String(m.version).padStart(3, '0')}_${m.name}`);
     }
     return 0;
@@ -53,6 +56,7 @@ async function main(): Promise<number> {
 main()
   .then((code) => { process.exitCode = code; })
   .catch((err) => {
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(`migrate: unexpected failure — ${err instanceof Error ? err.message : String(err)}`);
     process.exitCode = 1;
   });

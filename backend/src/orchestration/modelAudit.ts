@@ -145,16 +145,16 @@ export function parseAuditResponse(raw: string): ModelAuditResult {
     throw new Error('Audit response is not a JSON object');
   }
 
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
   const obj = parsed as Record<string, unknown>;
   const validResults: AuditResult[] = ['pass', 'flag', 'revise'];
 
-  if (!validResults.includes(obj['result'] as AuditResult)) {
+  const result = validResults.find(v => v === obj['result']);
+  if (result === undefined) {
     throw new Error(
       `Audit response "result" must be pass|flag|revise, got: "${String(obj['result'])}"`
     );
   }
-
-  const result = obj['result'] as AuditResult;
 
   // Enforce that non-pass results carry actionable issue and correction fields.
   // A revise or flag with no correction leaves the orchestrator with nothing to act on.
@@ -195,6 +195,7 @@ export async function runModelAudit(
   const { sessionId, requestId } = input;
   const startMs = Date.now();
 
+  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
   console.info(
     `[ModelAudit] start requestId=${requestId} sessionId=${sessionId} model=${MODEL_AUDIT_MODEL}`
   );
@@ -205,7 +206,9 @@ export async function runModelAudit(
   try {
     auditPrompt = loadStringExport(modelAuditPromptPath, 'MODEL_AUDIT_PROMPT');
   } catch (configErr) {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
     const error = configErr as Error;
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(
       `[ModelAudit] error requestId=${requestId} sessionId=${sessionId} ` +
       `cause=config_error message=${sanitizeErrorMessage(error.message)}`
@@ -263,6 +266,7 @@ export async function runModelAudit(
       auditResult = parseAuditResponse(textBlock.text);
     } catch (parseErr) {
       throw new ModelAuditError(
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
         (parseErr as Error).message,
         sessionId,
         requestId,
@@ -271,6 +275,7 @@ export async function runModelAudit(
     }
 
     const durationMs = Date.now() - startMs;
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.info(
       `[ModelAudit] complete requestId=${requestId} sessionId=${sessionId} ` +
       `result=${auditResult.result} durationMs=${durationMs}`
@@ -285,7 +290,9 @@ export async function runModelAudit(
 
     if (err instanceof ModelAuditError) throw err;
 
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
     const error = err as Error;
+    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
     console.error(
       `[ModelAudit] error requestId=${requestId} sessionId=${sessionId} ` +
       `cause=api_error message=${sanitizeErrorMessage(error.message)}`

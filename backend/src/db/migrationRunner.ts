@@ -63,7 +63,13 @@ export function parseMigrationFilename(
 ): { version: number; name: string } | undefined {
   const match = MIGRATION_FILENAME.exec(filename);
   if (!match) return undefined;
-  return { version: parseInt(match[1]!, 10), name: match[2]! };
+  const [, versionStr, name] = match;
+  if (versionStr === undefined || name === undefined) {
+    // Both groups are non-optional in MIGRATION_FILENAME; a match
+    // without them is an invariant breach, not a parse miss.
+    throw new Error(`parseMigrationFilename: regex matched '${filename}' without capture groups`);
+  }
+  return { version: parseInt(versionStr, 10), name };
 }
 
 // ── Statement splitting (pure) ────────────────────────────────
@@ -80,7 +86,7 @@ export function splitSqlStatements(sql: string): string[] {
   let mode: 'normal' | 'single' | 'double' | 'comment' = 'normal';
 
   for (let i = 0; i < sql.length; i++) {
-    const ch = sql[i]!;
+    const ch = sql.charAt(i);
 
     if (mode === 'comment') {
       current += ch;
@@ -243,7 +249,13 @@ export async function runMigrations(
     let statementIndex = 0;
     try {
       for (; statementIndex < statements.length; statementIndex++) {
-        await client.run(statements[statementIndex]!, []);
+        const statement = statements[statementIndex];
+        if (statement === undefined) {
+          // Unreachable under the loop bound; lands in the catch
+          // below → rollback + typed failure, never a silent skip.
+          throw new Error(`migration statement index ${statementIndex} out of bounds`);
+        }
+        await client.run(statement, []);
       }
       await client.run(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)',

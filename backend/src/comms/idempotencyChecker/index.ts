@@ -221,10 +221,10 @@ export async function executeIdempotencyPlan(
       return executeContentHashGate(plan, deps);
     default: {
       const impossible: never = plan;
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- never-branch diagnostic formatting on the exhaustive switch (otm#85)
+      const impossibleProvenance = (impossible as { provenance?: unknown }).provenance;
       throw new Error(
-        `executeIdempotencyPlan: malformed plan provenance ${String(
-          (impossible as { provenance?: unknown }).provenance,
-        )}`,
+        `executeIdempotencyPlan: malformed plan provenance ${String(impossibleProvenance)}`,
       );
     }
   }

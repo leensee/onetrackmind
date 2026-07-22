@@ -90,7 +90,7 @@ export function parseDate(text: string): string | null {
     const match = text.match(pattern);
     if (match) {
       const d = new Date(match[0]);
-      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]!;
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
     }
   }
   return null;
@@ -108,24 +108,23 @@ export function parseAmount(text: string): number | null {
   const amounts = matches
     .map(m => parseFloat(m.replace(/[$,\s]/g, '')))
     .filter(n => !isNaN(n) && n > 0);
-  if (amounts.length === 0) return null;
-  return amounts[amounts.length - 1]!;
+  const last = amounts[amounts.length - 1];
+  if (last === undefined) return null; // undefined ⟺ no amounts matched
+  return last;
 }
 
 export function parsePurchaseMethod(text: string): PurchaseMethod {
   // Card with last four digits
   const cardMatch = text.match(/(?:card|visa|mastercard|amex|credit|debit)[^\d]*(\d{4})/i);
   if (cardMatch) {
-    const method: PurchaseMethod = { type: 'card' };
-    if (cardMatch[1]) (method as { type: 'card'; lastFour?: string }).lastFour = cardMatch[1];
-    return method;
+    const lastFour = cardMatch[1];
+    return lastFour ? { type: 'card', lastFour } : { type: 'card' };
   }
   // Account charge
   const accountMatch = text.match(/(?:charged?\s+to|account|acct)[^\w]*([A-Z0-9\-]{3,20})/i);
   if (accountMatch) {
-    const method: PurchaseMethod = { type: 'account' };
-    if (accountMatch[1]) (method as { type: 'account'; accountRef?: string }).accountRef = accountMatch[1];
-    return method;
+    const accountRef = accountMatch[1];
+    return accountRef ? { type: 'account', accountRef } : { type: 'account' };
   }
   // Cash
   if (/\bcash\b/i.test(text)) return { type: 'cash' };
@@ -203,21 +202,30 @@ export async function parseExpense(
   let rawText: string;
 
   if (input.inputType === 'text') {
-    rawText = input.text!.trim();
+    // validateParseInput guarantees text for text input; if that
+    // coupling ever drifts, fail in-contract rather than assert.
+    if (input.text === undefined) {
+      return { ok: false, error: 'text is required for text input' };
+    }
+    rawText = input.text.trim();
   } else {
     if (!extractor) {
       return { ok: false, error: 'imageExtractor is required for image input but was not provided' };
     }
+    if (input.imageBytes === undefined || input.imageMimeType === undefined) {
+      return { ok: false, error: 'imageBytes and imageMimeType are required for image input' };
+    }
     try {
       rawText = await extractor.extractText(
-        input.imageBytes!,
-        input.imageMimeType!,
+        input.imageBytes,
+        input.imageMimeType,
         IMAGE_EXTRACTION_PROMPT
       );
       if (!rawText || rawText.trim() === '') {
         return { ok: false, error: 'image extraction returned empty text' };
       }
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       return { ok: false, error: `image extraction failed: ${(err as Error).message}` };
     }
   }

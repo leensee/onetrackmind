@@ -58,6 +58,7 @@ export function validateRecipients(recipients: string[]): string | null {
 export function validateCommsDraftInput(input: CommsDraftInput): string | null {
   // Runtime shape guard: input must be a non-null object. Without this check a
   // bare null/primitive value from malformed JSON would throw on property access.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): runtime revalidation of typed input; unknown-cast avoids TS2367
   if (typeof (input as unknown) !== 'object' || (input as unknown) === null) {
     return 'input must be a non-null object';
   }

@@ -122,8 +122,11 @@ export function resolveMachineIdentifier(
   const exactMatches = roster.filter(m =>
     m.commonNames.some(cn => cn.toLowerCase() === qLower)
   );
-  if (exactMatches.length === 1) return { status: 'found',     machine:    exactMatches[0]! };
-  if (exactMatches.length  > 1)  return { status: 'ambiguous', candidates: exactMatches };
+  const [exactOnly, ...exactRest] = exactMatches;
+  if (exactOnly !== undefined && exactRest.length === 0) {
+    return { status: 'found', machine: exactOnly };
+  }
+  if (exactRest.length > 0) return { status: 'ambiguous', candidates: exactMatches };
 
   // Step 5: Common name contains
   const containsMatches = roster.filter(m =>
@@ -132,8 +135,11 @@ export function resolveMachineIdentifier(
       return cnLower.includes(qLower) || qLower.includes(cnLower);
     })
   );
-  if (containsMatches.length === 1) return { status: 'found',     machine:    containsMatches[0]! };
-  if (containsMatches.length  > 1)  return { status: 'ambiguous', candidates: containsMatches };
+  const [containsOnly, ...containsRest] = containsMatches;
+  if (containsOnly !== undefined && containsRest.length === 0) {
+    return { status: 'found', machine: containsOnly };
+  }
+  if (containsRest.length > 0) return { status: 'ambiguous', candidates: containsMatches };
 
   return { status: 'not_found' };
 }
@@ -195,6 +201,7 @@ export async function fetchRoster(db: SpecLookupDbClient): Promise<MachineRoster
     try {
       return mapRosterRow(row);
     } catch {
+      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
       console.warn(
         `[SpecLookup] skipping malformed roster row index=${idx} machine_id=${row.machine_id}`
       );
@@ -233,6 +240,7 @@ export async function specLookup(
     return {
       status:  'error',
       cause:   'db_error',
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       message: `Roster fetch failed [sessionId=${sessionId} requestId=${requestId}]: ${(err as Error).message}`,
     };
   }
@@ -265,6 +273,7 @@ export async function specLookup(
     return {
       status:  'error',
       cause:   'db_error',
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       message: `Spec fetch failed [machineId=${machine.machineId} sessionId=${sessionId}]: ${(err as Error).message}`,
     };
   }

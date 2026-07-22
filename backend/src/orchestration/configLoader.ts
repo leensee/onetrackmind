@@ -48,9 +48,9 @@ function requireConfigModule(configPath: string, exportName: string): unknown {
 
   for (const candidatePath of candidatePaths) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require(candidatePath);
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
       lastError = err as Error;
     }
   }
@@ -68,6 +68,7 @@ export function loadStringExport(configPath: string, exportName: string): string
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
   const value = (mod as Record<string, unknown>)[exportName];
   if (typeof value !== 'string') {
     throw new Error(
