@@ -9,8 +9,8 @@
 // the active suite.
 //
 //   no-console                 error  Standing Principles §17 (injected Logger seam)
-//   import/no-restricted-paths error  layer boundaries (zones below) — criterion 3
-//   import/no-cycle            error  circular imports — criterion 3
+//   import-x/no-restricted-paths error  layer boundaries (zones below) — criterion 3
+//   import-x/no-cycle            error  circular imports — criterion 3
 //   @typescript-eslint/no-explicit-any        error  criterion 1
 //   @typescript-eslint/no-non-null-assertion  error  criterion 1
 //   @typescript-eslint/consistent-type-assertions ('never') error
@@ -30,8 +30,12 @@
 // legacy as-casts carry otm#85 (as-cast audit).
 // ============================================================
 
+// Import rules come from eslint-plugin-import-x (maintained fork of
+// eslint-plugin-import; identical rule semantics, ESLint 10 peer
+// support — the original caps at ^9). Settings must use the
+// 'import-x/' namespace; the fork does not read 'import/' keys.
 import tseslint from 'typescript-eslint';
-import importPlugin from 'eslint-plugin-import';
+import { createNodeResolver, importX } from 'eslint-plugin-import-x';
 
 export default [
   { ignores: ['dist/', 'dist-test/'] },
@@ -47,13 +51,15 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint.plugin,
-      import: importPlugin,
+      'import-x': importX,
     },
     settings: {
       // Resolve extensionless relative imports ('./pure') to .ts files
       // so no-cycle / no-restricted-paths can follow them.
-      'import/resolver': { node: { extensions: ['.ts', '.js'] } },
-      'import/parsers': { '@typescript-eslint/parser': ['.ts'] },
+      'import-x/resolver-next': [
+        createNodeResolver({ extensions: ['.ts', '.js'] }),
+      ],
+      'import-x/parsers': { '@typescript-eslint/parser': ['.ts'] },
     },
     linterOptions: {
       // v9 default, made explicit: stale suppressions surface as
@@ -73,7 +79,7 @@ export default [
       //     orchestration/types.ts and are consumed below the
       //     orchestration layer; types.ts is the sanctioned shared-
       //     contract surface until relocation (otm#86).
-      'import/no-restricted-paths': [
+      'import-x/no-restricted-paths': [
         'error',
         {
           zones: [
@@ -140,7 +146,7 @@ export default [
       //     not join the plugin's dependency graph, so a cycle formed
       //     only of them goes undetected. All current imports are
       //     named; keep it that way for cycle coverage.
-      'import/no-cycle': ['error', { ignoreExternal: true }],
+      'import-x/no-cycle': ['error', { ignoreExternal: true }],
 
       // 4/5/6 — Type-safety escape hatches.
       '@typescript-eslint/no-explicit-any': 'error',
