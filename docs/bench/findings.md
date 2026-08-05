@@ -80,4 +80,4 @@ Notes:
 
 ## Corpus deletion
 
-Per the §10 bench-exception ruling: corpus deleted when Q1–Q4 above are answered and recorded; deletion logged in [protocol.md](protocol.md) § Corpus deletion record. **Status: corpus not yet created.**
+Per the §10 bench-exception ruling (end condition amended 2026-08-05 per the Decisions Log): the corpus is deleted when Q1–Q5 are answered and recorded in findings.md and the compression-vs-WER measurement is complete; the deletion is recorded in [protocol.md](protocol.md) § Corpus deletion record. **Status: corpus exists — 80 entries (76 audio + 4 notes; cleanroom20260805 = 62, soak20260805 = 18). Recorded 2026-08-05.**

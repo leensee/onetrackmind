@@ -1,11 +1,12 @@
 # iOS Capture-Path Bench Spike — Protocol
 
-Standalone bench harness. Answers four questions (first three blocking, in priority order):
+Standalone bench harness. Answers five questions (first three blocking, in priority order):
 
 - **Q1** — Can a Flutter app reach Apple's voice-processing pipeline and obtain Voice Isolation on the recording path?
 - **Q2** — Does Voice Isolation apply to third-party Bluetooth (HFP) microphone input, or only the built-in mic?
 - **Q3** — Does a Siri shortcut resume after Face ID unlock (gloved, no-screen-contact entry)?
 - **Q4** — Comparative word-error-rate across capture configurations (floor device only).
+- **Q5** — Can the app set `preferredMicrophoneMode` programmatically?
 
 Q1 is blocking for everything downstream: if no voice-processing profile ever surfaces microphone modes for the app, report immediately and stop.
 
@@ -20,7 +21,7 @@ Results land in [findings.md](findings.md) as each question is answered. Utteran
 1. **Voice-audio retention (§3.4 / §4.4).** The WER corpus retains audio — WER is unmeasurable without it; no compliant version of this spike exists. Conditions:
    - The corpus directory must be verified to sit **outside any cloud-sync tree** before anything is recorded (verify, don't assume — the local tree was reorganized recently). The receiver refuses to start if the corpus path resolves inside a known sync root.
    - The corpus volume must be **encrypted** (FileVault or equivalent). The receiver checks `fdesetup status` at startup.
-   - Deletion is tied to a **named end condition**: the corpus is deleted when the four spike questions are answered and recorded in findings.md — not "at spike end". The deletion itself is recorded (below).
+   - Deletion is tied to a **named end condition**: the corpus is deleted when Q1–Q5 are answered and recorded in findings.md and the compression-vs-WER measurement is complete (end condition amended 2026-08-05 per the Decisions Log) — not "at spike end". The deletion itself is recorded (below).
    - The field user is told, in the recording instructions, that **audio is retained for analysis and deleted afterward**, and that **other workers' voices will likely be captured incidentally** beside running equipment.
    - Device-side behavior is unchanged by this exception: audio deletes from the phone immediately on confirmed receipt.
 2. **SQLCipher (§3.3).** The spike queue is JSON sidecars + files, not encrypted SQLite. Conditions: iOS file protection is set to the **complete** class explicitly (the platform default leaves files readable after first unlock); the harness records in code that the **production capture queue uses SQLCipher per §3.3, unchanged** — this file queue is not a precedent.
@@ -29,7 +30,7 @@ Results land in [findings.md](findings.md) as each question is answered. Utteran
 
 ### Corpus deletion record
 
-| Date | Corpus path | Deleted by | Q1–Q4 recorded in findings.md? |
+| Date | Corpus path | Deleted by | Q1–Q5 + compression-vs-WER recorded in findings.md? |
 |---|---|---|---|
 | _(pending)_ | | | |
 
@@ -56,13 +57,13 @@ TestFlight upload needs an Apple Distribution certificate and an App Store provi
 
 | Item | State |
 |---|---|
-| Bundle id | `com.leensee.otmbench` in all configs — real, stable (Q3: reinstall preserved it). **Decision (2026-07-23): the bench harness gets its own App Store Connect record**, with an ASC app name distinct from the product (e.g. "OTM Bench") — a disposable spike never goes on the product's record; ASC names are reserved once claimed and deleted apps can't free their bundle id. `CFBundleDisplayName` stays **OneTrackMind** regardless (Q3 rename freeze). |
+| Bundle id | `com.leensee.otmbench.spike` in all configs (renamed — see 2026-07-27 note below; originally `com.leensee.otmbench`, real and stable through Q1–Q3, Q3: reinstall preserved it). **Decision (2026-07-23): the bench harness gets its own App Store Connect record**, with an ASC app name distinct from the product (e.g. "OTM Bench") — a disposable spike never goes on the product's record; ASC names are reserved once claimed and deleted apps can't free their bundle id. `CFBundleDisplayName` stays **OneTrackMind** regardless (Q3 rename freeze). |
 | Usage descriptions | `NSMicrophoneUsageDescription` and `NSLocalNetworkUsageDescription` present; `NSAllowsLocalNetworking` covers the plain-HTTP LAN receiver |
 | Entitlements | None present, none needed — App Shortcuts (AppIntents) require no Siri entitlement |
 | Icons | AppIcon set complete, incl. the 1024 pt marketing icon |
 | Archive | **Proven** with dev signing. Free teams can archive; they cannot export for distribution |
 | Signing config | Flags: the Runner target has no explicit `CODE_SIGN_STYLE` (only RunnerTests does) and carries a legacy `CODE_SIGN_IDENTITY = "iPhone Developer"` pin. Automatic signing substituted "Apple Development" correctly this run — set the style explicitly and drop the pin post-enrollment rather than relying on that |
-| Version | pubspec `1.0.0+1`; every TestFlight upload needs a unique build number |
+| Version | pubspec `1.0.0+2`; every TestFlight upload needs a unique build number |
 
 Note (2026-07-27): the bundle id is now **`com.leensee.otmbench.spike`**. The original `com.leensee.otmbench` was consumed by the free personal team's App ID registration during Q1–Q3 work, explicit App IDs belong to exactly one team, and free teams have no identifier portal to release them — so the paid team could not register the string ("not available"). Consequences absorbed: per-app mic-mode state starts fresh on the new id (re-smoke persistence, already planned for the team change); the Siri phrase is unaffected (keyed to the display name); the old-id app must be deleted from the dev phone so two "OneTrackMind" installs can't confuse phrase binding. Q3's "same bundle id" reinstall evidence refers to the original id — historically accurate, not retro-edited.
 
@@ -127,7 +128,7 @@ Smoke-check while here: set VI, force-quit, relaunch — does `preferredMicropho
 
 ## Field session runbook (floor device, single batched session)
 
-**Recording instructions given to the field user must include:** audio from this session is retained on the bench Mac for transcription-accuracy analysis and deleted once the four spike questions are answered and recorded; other workers' voices will likely be captured incidentally beside running equipment.
+**Recording instructions given to the field user must include:** audio from this session is retained on the bench Mac for transcription-accuracy analysis and deleted once the five spike questions are answered and recorded and the audio-compression accuracy measurement is complete; other workers' voices will likely be captured incidentally beside running equipment.
 
 Preflight (before travel): receiver running, `GET /health` green from the phone's **Ping receiver** button; session id set (`fieldYYYYMMDD`); headsets charged; utterance cards printed; floor device running the soak-passed build via TestFlight internal testing (tester invited, build installed and launched once before travel).
 
