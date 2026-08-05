@@ -33,6 +33,8 @@ The per-app `preferredMicrophoneMode` persisted across profile switches and capt
 
 Operational note: after pairing, the inactive session's route showed **no inputs** ­— the BT input only claimed the route on session reactivation (bench workaround: re-select the profile to force deactivate→configure→activate). The field runbook's per-arm step "verify snapshot route matches the arm" already covers this.
 
+Route-claim addendum (2026-08-05 soak, operator-observed): **reconnecting an already-paired headset claims the route on its own** — ~1 s after connect, with the `routeChange` event firing instantly — and powering the headset off falls back to the built-in mic automatically. The re-select workaround above applied to the *first pairing*; steady-state reconnects self-heal. Remote-design input: only initial pairing needs the re-apply step, and the walkthrough's Re-apply button remains the escape hatch.
+
 ## Q3 — Siri shortcut resumes after Face ID unlock?
 
 **Status: ANSWERED — PASS, both cases (2026-07-21, dev iPhone, iOS 26.5.2).** Gloved, zero-screen-contact entry works warm and cold. Captures `7e0ab901` (warm) / `81fa9427` (cold), both `trigger_source: siri-shortcut`, VI active over the connected BT headset.
@@ -49,16 +51,32 @@ Notes:
 - `t_appActive` (+550 warm / +814 cold) lands **after** first buffer in both runs — the Swift-side start sequence really does run ahead of app/Flutter activation, as designed; Flutter cold-start cost stays out of the capture path.
 - First-ever Siri invocation raised a one-time "Turn on capture with OneTrackMind?" authorization — **answerable by voice** (no touch); it does not recur.
 - **Harness fix required for Q3 (committed this session):** with `CFBundleDisplayName` = "App", Siri could not bind the phrase ("no app named capture"). Renamed to **OneTrackMind**; phrase "Start OneTrackMind capture" recognized reliably. Any future rename must re-verify the App Shortcut phrase.
+- Persistence re-verified 2026-08-05 on the changed signing team and bundle id (`com.leensee.otmbench.spike`, paid team): every soak capture, including post-force-quit Siri triggers, logged `preferred: voiceIsolation` — the Q3 result was not team- or bundle-specific.
 
 ## Q4 — Comparative WER across capture arms (floor device)
 
-**Status: OPEN** — field session pending paid-enrollment gate. Results: `docs/bench/results/<session>/wer.md`.
+**Status: OPEN** — awaiting the field session (floor device); enrollment and the soak gate are both cleared. The pipeline itself is proven end-to-end (2026-08-05, `cleanroom20260805`, dev device, quiet room, recorded through the guided walkthrough): 60 scored, 0 flagged, bench baseline ≈6–7 % WER across the three built-in arms — see `results/cleanroom20260805/`, which is a baseline, not a Q4 answer. Results: `docs/bench/results/<session>/wer.md`.
 
 | Arm | WER % | Flagged captures | Notes |
 |---|---|---|---|
 | _pending field session_ | | | |
 
 Same-session verifications (floor device): mic-mode persistence — _pending_; per-headset HFP sample rate — _pending_; glove operability (physical vs capacitive controls per headset) — _pending_.
+
+## Q5 — Can the app set `preferredMicrophoneMode` programmatically?
+
+**Status: ANSWERED — NO (2026-07-23, bench Mac SDK audit: Xcode 26.6 / iOS 26 SDK).** The mic-mode API is read-only by design — the header documents the property as "selected by the user in Control Center" — and the only mutation path Apple exposes is presenting the system sheet. The harness already does everything the platform allows.
+
+| Item | Result |
+|---|---|
+| `preferredMicrophoneMode` settable | **NO** — `@property(class, readonly)` in AVCaptureDevice.h (iOS 26 SDK); no setter in any SDK framework header (frameworks-wide sweep) |
+| `activeMicrophoneMode` settable | **NO** — `@property(class, readonly)`; tracks preferred, diverges only when the active route can't support it |
+| Programmatic path to the picker | `AVCaptureDevice.showSystemUserInterface(.microphoneModes)` — presents the system sheet; the user selects. Already wired to the **Mic mode UI** button |
+| Mitigation | Per-app persistence (Q1/Q3 evidence): the preference survives backgrounding, force-quit, relaunch, and reinstall — the sheet is needed once per arm change, not per capture |
+
+Notes:
+- Field consequence: every VI↔Standard arm boundary is start capture → open sheet → pick → confirm snapshot → stop (the sheet is blank when idle, per Q1) — performed remotely, gloved, beside running equipment. **This makes pre-capture validation mandatory for the remote-operation design, not an enhancement**: the tester cannot be assumed to have picked correctly, and the harness must verify the logged `activeMicrophoneMode` before an arm proceeds. Recorded here so the remote-operation handoff inherits the requirement rather than re-deriving it.
+- Evidence is the SDK API surface (header grep over AVFoundation/AVFAudio plus a frameworks-wide setter sweep: none), consistent with the harness code, which reads both properties and mutates nothing.
 
 ## Corpus deletion
 

@@ -9,6 +9,8 @@
 # Env:
 #   WHISPER_MODEL  path to ggml-large-v3.bin (required)
 #   WHISPER_CLI    whisper.cpp CLI binary (default: whisper-cli on PATH)
+#   WHISPER_COMMIT whisper.cpp commit recorded in the manifest
+#                  (default: git-derived from the CLI's checkout, else "unknown")
 #
 # Layout in:  <corpus-session-dir>/<arm_label>/<entry_id>.wav
 # Layout out: <work-dir>/hyp/<arm_label>/<entry_id>.txt + manifest.json
@@ -28,6 +30,19 @@ command -v "$WHISPER_CLI" >/dev/null || { echo "whisper CLI not found: $WHISPER_
 command -v afconvert >/dev/null || { echo "afconvert not found (macOS required)" >&2; exit 1; }
 [[ -f "$WHISPER_MODEL" ]] || { echo "model not found: $WHISPER_MODEL" >&2; exit 1; }
 
+# A non-git install (e.g. brew) has no derivable commit — set WHISPER_COMMIT explicitly there.
+# Symlinks are followed by hand: plain readlink (no -f) exists on every macOS,
+# and a failed resolution must yield "unknown", never a git lookup in the cwd.
+resolve_cli() {
+  p=$(command -v "$WHISPER_CLI")
+  while [ -L "$p" ]; do
+    t=$(readlink "$p") || break
+    case $t in /*) p=$t ;; *) p=$(dirname "$p")/$t ;; esac
+  done
+  printf '%s' "$p"
+}
+WHISPER_COMMIT=${WHISPER_COMMIT:-$(CLI=$(resolve_cli); [ -n "$CLI" ] && git -C "$(dirname "$CLI")" rev-parse HEAD 2>/dev/null || echo unknown)}
+
 mkdir -p "$WORK_DIR/hyp" "$WORK_DIR/wav16k"
 
 MODEL_SHA=$(shasum -a 256 "$WHISPER_MODEL" | cut -d' ' -f1)
@@ -35,13 +50,13 @@ cat > "$WORK_DIR/manifest.json" <<EOF
 {
   "transcribed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "whisper_cli": "$($WHISPER_CLI --help 2>&1 | head -1 | tr -d '"' || true)",
+  "whisper_commit": "$WHISPER_COMMIT",
   "model": "$(basename "$WHISPER_MODEL")",
   "model_sha256": "$MODEL_SHA",
   "corpus_dir": "$CORPUS_DIR"
 }
 EOF
 
-count=0
 find "$CORPUS_DIR" -name '*.wav' | while read -r wav; do
   arm=$(basename "$(dirname "$wav")")
   id=$(basename "$wav" .wav)
@@ -51,7 +66,6 @@ find "$CORPUS_DIR" -name '*.wav' | while read -r wav; do
   afconvert -f WAVE -d LEI16@16000 -c 1 "$wav" "$wav16k"
   "$WHISPER_CLI" -m "$WHISPER_MODEL" -nt -l en -otxt \
     -of "$WORK_DIR/hyp/$arm/$id" -f "$wav16k" >/dev/null
-  count=$((count + 1))
   echo "transcribed $arm/$id"
 done
 

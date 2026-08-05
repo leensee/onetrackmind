@@ -40,13 +40,35 @@ Results land in [findings.md](findings.md) as each question is answered. Utteran
 | Device | Role | Signing |
 |---|---|---|
 | iPhone Pro (dev) | All bench-phase work (Q1–Q3), stability soak | Free personal team (7-day profiles acceptable; re-signed in person) |
-| iPhone Pro (field) + older iPhone (floor) | Field session (Q4) only | **Paid Apple Developer Program, ad-hoc distribution** (1-year profiles). Free profiles are prohibited on field phones: the field rotation is 7–10 days on, and a 7-day profile would expire mid-hitch with no cable and no developer present. |
+| iPhone Pro (field) + older iPhone (floor) | Field session (Q4) only | **Paid Apple Developer Program, TestFlight internal testing.** Internal testers install over the air — no UDID registration, no cable, no developer present; builds are installable minutes after processing (internal testing skips Beta App Review) and stay valid 90 days, covering the 7–10-day hitch with margin. Ad-hoc is dropped: it requires per-device UDID registration — a cable or walking the tester through a capture site — and the field session is now fully remote. Free profiles remain prohibited on field phones: a 7-day profile would expire mid-hitch with no cable and no developer present. |
 
 The **older iPhone is the floor, not a proxy** — capability results transfer newer→older; performance and audio-quality results do not. All WER arms run on the floor device.
 
 **Hard gate:** no field install before the dev-device stability soak passes (30+ captures across a day, incoming call mid-capture, route flap, backgrounding, Siri triggers; zero crashes, zero lost queue entries).
 
-**Fallback (live option, not last resort):** if paid enrollment slips past the hitch, produce the Q4 corpus with the built-in Voice Memos app (Voice Isolation available on iOS 26+; input selectable in Control Center). Approximates rather than replicates the app's own session; cannot answer Q1/Q3 (already answered by then). Missing the hitch costs 12–17 days, so exercise this rather than wait.
+**Soak record — PASSED (2026-08-05, dev iPhone, iOS 26.5.2, build 1.0.0 (2)).** 76 audio captures across the day: 62 clean-room (recorded through the guided walkthrough, its first real use) + 14 disruption captures covering incoming call declined and answered mid-capture, route flap both directions with the clip headset, backgrounding mid-capture, offline queueing (Wi-Fi off, receiver unreachable), three Siri triggers (warm, cold, with backlog), and force-quit with pending entries. Zero crashes; zero lost queue entries — phone reported `pending 0 · parked 0 · synced 80`, Mac corpus held exactly 80 entries (76 audio + 4 notes), receiver log: 80 unique stores, 0 storage errors. The gate is open.
+
+**Fallback (live option, not last resort):** if paid enrollment and the first processed TestFlight build slip past the hitch, produce the Q4 corpus with the built-in Voice Memos app (Voice Isolation available on iOS 26+; input selectable in Control Center). Approximates rather than replicates the app's own session; cannot answer Q1/Q3 (already answered by then). Missing the hitch costs 12–17 days, so exercise this rather than wait.
+
+### Distribution readiness — audited 2026-07-23 (pre-enrollment)
+
+TestFlight upload needs an Apple Distribution certificate and an App Store provisioning profile — different artifacts from dev-phone signing. Everything checkable without enrollment was checked; the archive path was proven with development signing (`xcodebuild archive` succeeded: identity "Apple Development", team `3YJU8NL4ZA`, profile "iOS Team Provisioning Profile: com.leensee.otmbench"). Export-for-distribution is the only step that genuinely waits on enrollment.
+
+| Item | State |
+|---|---|
+| Bundle id | `com.leensee.otmbench` in all configs — real, stable (Q3: reinstall preserved it). **Decision (2026-07-23): the bench harness gets its own App Store Connect record**, with an ASC app name distinct from the product (e.g. "OTM Bench") — a disposable spike never goes on the product's record; ASC names are reserved once claimed and deleted apps can't free their bundle id. `CFBundleDisplayName` stays **OneTrackMind** regardless (Q3 rename freeze). |
+| Usage descriptions | `NSMicrophoneUsageDescription` and `NSLocalNetworkUsageDescription` present; `NSAllowsLocalNetworking` covers the plain-HTTP LAN receiver |
+| Entitlements | None present, none needed — App Shortcuts (AppIntents) require no Siri entitlement |
+| Icons | AppIcon set complete, incl. the 1024 pt marketing icon |
+| Archive | **Proven** with dev signing. Free teams can archive; they cannot export for distribution |
+| Signing config | Flags: the Runner target has no explicit `CODE_SIGN_STYLE` (only RunnerTests does) and carries a legacy `CODE_SIGN_IDENTITY = "iPhone Developer"` pin. Automatic signing substituted "Apple Development" correctly this run — set the style explicitly and drop the pin post-enrollment rather than relying on that |
+| Version | pubspec `1.0.0+1`; every TestFlight upload needs a unique build number |
+
+Note (2026-07-27): the bundle id is now **`com.leensee.otmbench.spike`**. The original `com.leensee.otmbench` was consumed by the free personal team's App ID registration during Q1–Q3 work, explicit App IDs belong to exactly one team, and free teams have no identifier portal to release them — so the paid team could not register the string ("not available"). Consequences absorbed: per-app mic-mode state starts fresh on the new id (re-smoke persistence, already planned for the team change); the Siri phrase is unaffected (keyed to the display name); the old-id app must be deleted from the dev phone so two "OneTrackMind" installs can't confuse phrase binding. Q3's "same bundle id" reinstall evidence refers to the original id — historically accurate, not retro-edited.
+
+Note (2026-07-23): enrollment is under a **different Apple ID** than the free personal team currently pinned in the project. Until the swap, keep **both** accounts signed into Xcode — the pinned `DEVELOPMENT_TEAM` belongs to the old one, and removing it breaks dev-phone builds. At swap time the signing team changes, which iOS treats as a different app signature on the same bundle id: expect a delete-and-reinstall on each device (mic permission re-granted; re-run the mic-mode persistence smoke — the Q3 reinstall evidence was same-team).
+
+Post-enrollment TODO, in order: swap `DEVELOPMENT_TEAM` to the paid team **(new team id, under the new Apple ID — not `3YJU8NL4ZA`)**; set `CODE_SIGN_STYLE = Automatic` on Runner and remove the identity pin; register the bundle id and create the bench ASC record with an internal-tester group — **enrollment is Individual (confirmed 2026-07-23)**, which supports this: internal testers are added as App Store Connect users with a qualifying role (use the least-privileged one that TestFlight accepts), they don't touch certificates, and only the account holder uploads builds; bump the build number per upload; decide export compliance for the harness (likely `ITSAppUsesNonExemptEncryption=false` — TLS plus a shared secret) — a **harness-only answer with no product precedent per §10**: the product build carries SQLCipher and re-derives its own.
 
 ---
 
@@ -107,7 +129,7 @@ Smoke-check while here: set VI, force-quit, relaunch — does `preferredMicropho
 
 **Recording instructions given to the field user must include:** audio from this session is retained on the bench Mac for transcription-accuracy analysis and deleted once the four spike questions are answered and recorded; other workers' voices will likely be captured incidentally beside running equipment.
 
-Preflight (before travel): receiver running, `GET /health` green from the phone's **Ping receiver** button; session id set (`fieldYYYYMMDD`); headsets charged; utterance cards printed; floor device provisioned (ad-hoc) and soak-passed build installed.
+Preflight (before travel): receiver running, `GET /health` green from the phone's **Ping receiver** button; session id set (`fieldYYYYMMDD`); headsets charged; utterance cards printed; floor device running the soak-passed build via TestFlight internal testing (tester invited, build installed and launched once before travel).
 
 Per arm (order: `builtin-raw` first as control, then built-in arms, then headset arms, `builtin-earsplugged` last):
 1. Select arm + profile in the bench UI; verify snapshot route/mic-mode matches the arm definition.
