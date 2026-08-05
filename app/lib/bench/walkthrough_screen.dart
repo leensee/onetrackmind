@@ -316,6 +316,8 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
         }
         try {
           await widget.channel.configureSession(step.arm.profile);
+          await widget.channel
+              .setDefaults(profile: step.arm.profile, armLabel: step.arm.label);
           _configureDone = true;
           await _refreshSnapshot();
           if (mounted) setState(() {});
