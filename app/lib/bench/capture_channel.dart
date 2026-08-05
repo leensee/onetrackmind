@@ -10,7 +10,9 @@ class CaptureChannel {
   /// Broadcast stream of {type, at, atMonotonicMs, payload, captureId?} maps.
   /// Events raised before Dart attached (Siri cold start) are buffered on the
   /// Swift side and flushed in order on first listen.
-  Stream<Map<String, dynamic>> get events => _events
+  /// Cached: the platform channel supports a single attach, so every listener
+  /// must fan out from one underlying stream.
+  late final Stream<Map<String, dynamic>> events = _events
       .receiveBroadcastStream()
       .map((event) => (event as Map).cast<String, dynamic>());
 

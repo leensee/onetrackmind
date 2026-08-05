@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- Harness-only export-compliance answer (plain-HTTP LAN + shared secret); the product
+	     build carries SQLCipher and re-derives its own — no precedent per policy §10. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>OneTrackMind bench harness records audio to measure capture quality across microphone configurations.</string>
 	<key>NSLocalNetworkUsageDescription</key>

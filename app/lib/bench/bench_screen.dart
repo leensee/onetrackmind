@@ -9,6 +9,8 @@ import 'capture_channel.dart';
 import 'capture_queue.dart';
 import 'models.dart';
 import 'submit_client.dart';
+import 'walkthrough_screen.dart';
+import 'walkthrough_script.dart';
 
 /// One-screen bench instrument: profile/arm/utterance selection, record/stop,
 /// live session snapshot (the Q1/Q2 evidence pane), queue status, receiver
@@ -195,6 +197,23 @@ class _BenchScreenState extends State<BenchScreen>
     if (mounted) setState(() => _queueSummary = summary);
   }
 
+  Future<void> _openWalkthrough(String name) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => WalkthroughScreen(
+        channel: _channel,
+        queue: _queue!,
+        client: _client,
+        settings: () => _settings,
+        saveSettings: _saveSettings,
+        sequence: name == 'cleanroom' ? cleanroomSequence() : fieldSequence(),
+        progressFile:
+            File('${_settingsFile!.parent.path}/walkthrough-progress.json'),
+      ),
+    ));
+    await _refreshSnapshot();
+    await _refreshQueueSummary();
+  }
+
   Future<void> _saveSettings(BenchSettings settings) async {
     _settings = settings;
     await _settingsFile
@@ -245,7 +264,20 @@ class _BenchScreenState extends State<BenchScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('OTM Capture Bench')),
+      appBar: AppBar(
+        title: const Text('OTM Capture Bench'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.checklist),
+            enabled: _queue != null && !_recording,
+            onSelected: _openWalkthrough,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'cleanroom', child: Text('Clean-room walkthrough')),
+              PopupMenuItem(value: 'field', child: Text('Field walkthrough')),
+            ],
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
