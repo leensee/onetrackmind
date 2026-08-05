@@ -185,6 +185,8 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
 
   // ── progress persistence ───────────────────────────────────
 
+  // Progress is best-effort resume state: any read/write failure degrades to
+  // a fresh start, never a crash mid-session.
   Map<String, dynamic>? _readProgress() {
     try {
       if (!widget.progressFile.existsSync()) return null;
@@ -193,23 +195,33 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
       return json.cast<String, dynamic>();
     } on FormatException {
       return null;
+    } on FileSystemException {
+      return null;
     }
   }
 
   void _persistProgress({required int nextStepIx}) {
-    widget.progressFile.writeAsStringSync(jsonEncode({
-      'schema': _progressSchema,
-      'sequence': _sequence.name,
-      'session_id': widget.settings().sessionId,
-      'block_index': _blockIx,
-      'step_index': nextStepIx,
-      'cut_from_block': _cutFromBlock,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }));
+    try {
+      widget.progressFile.writeAsStringSync(jsonEncode({
+        'schema': _progressSchema,
+        'sequence': _sequence.name,
+        'session_id': widget.settings().sessionId,
+        'block_index': _blockIx,
+        'step_index': nextStepIx,
+        'cut_from_block': _cutFromBlock,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }));
+    } on FileSystemException {
+      // Captures are already safe in the queue; only resume granularity is lost.
+    }
   }
 
   void _deleteProgress() {
-    if (widget.progressFile.existsSync()) widget.progressFile.deleteSync();
+    try {
+      if (widget.progressFile.existsSync()) widget.progressFile.deleteSync();
+    } on FileSystemException {
+      // Stale progress is rejected on the next run by the sequence/session match.
+    }
   }
 
   // ── runner core ────────────────────────────────────────────

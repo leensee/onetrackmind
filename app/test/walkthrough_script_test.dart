@@ -231,10 +231,22 @@ void main() {
   });
 
   test('utterance map matches tools/wer/references.json (authoritative)', () {
-    final file = File('../tools/wer/references.json');
-    expect(file.existsSync(), isTrue,
-        reason: 'run from app/ inside the repo checkout');
-    final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+    // Walk up from the working directory so the test passes whether it runs
+    // from app/ (flutter test) or the repo root (some IDE runners).
+    var dir = Directory.current;
+    File? file;
+    for (var i = 0; i < 5; i++) {
+      final candidate = File('${dir.path}/tools/wer/references.json');
+      if (candidate.existsSync()) {
+        file = candidate;
+        break;
+      }
+      dir = dir.parent;
+    }
+    expect(file, isNotNull,
+        reason: 'tools/wer/references.json not found walking up from '
+            '${Directory.current.path} — run inside the repo checkout');
+    final json = jsonDecode(file!.readAsStringSync()) as Map<String, dynamic>;
     final refs = (json['references'] as Map).cast<String, String>();
     expect(utteranceTexts, refs);
   });
