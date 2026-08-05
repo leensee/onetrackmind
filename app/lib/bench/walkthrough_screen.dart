@@ -463,6 +463,15 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
   // ── cut to U12 ─────────────────────────────────────────────
 
   Future<void> _cutToU12() async {
+    // Monotonic: a cut can only be requested later in the sequence than an
+    // existing one, and resume reapplies solely from the saved index — so a
+    // repeat would silently regress the earlier cut. Ignore repeats.
+    if (_cutFromBlock != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Cut already applied — remaining arms are at U01–U12.'),
+          duration: Duration(seconds: 2)));
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
