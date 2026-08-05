@@ -66,7 +66,6 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
   Timer? _tick;
   StreamSubscription<Map<String, dynamic>>? _events;
 
-  final Map<String, int> _tally = {};
   ({int pending, int parked, int synced}) _queueSummary =
       (pending: 0, parked: 0, synced: 0);
   List<CaptureEntry> _sessionEntries = [];
@@ -363,7 +362,6 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
       final v = validateStopMetadata(step.arm, metadata,
           requireModeAtStart: false);
       if (v.ok) {
-        _bumpTally(step.arm.label);
         _advance();
       } else {
         _fail([...v.problems, 'redo the settling capture']);
@@ -404,7 +402,6 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
       final v = validateStopMetadata(step.arm, metadata,
           expectedUtteranceId: step.utteranceId);
       if (v.ok) {
-        _bumpTally(step.arm.label);
         _persistProgress(nextStepIx: _injectedSettle == null ? _stepIx + 1 : _stepIx);
         final secs =
             ((result['durationMs'] as num? ?? 0) / 1000).toStringAsFixed(1);
@@ -443,10 +440,6 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
         stopResult: stopResult, sessionId: widget.settings().sessionId);
     final summary = await widget.queue.summary();
     if (mounted) setState(() => _queueSummary = summary);
-  }
-
-  void _bumpTally(String arm) {
-    _tally[arm] = (_tally[arm] ?? 0) + 1;
   }
 
   // ── instructions / notes ───────────────────────────────────
