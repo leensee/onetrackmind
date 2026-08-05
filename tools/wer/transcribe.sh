@@ -31,8 +31,17 @@ command -v afconvert >/dev/null || { echo "afconvert not found (macOS required)"
 [[ -f "$WHISPER_MODEL" ]] || { echo "model not found: $WHISPER_MODEL" >&2; exit 1; }
 
 # A non-git install (e.g. brew) has no derivable commit — set WHISPER_COMMIT explicitly there.
-# readlink -f resolves a symlinked CLI back into its checkout (macOS 12.3+; this script is Mac-only).
-WHISPER_COMMIT=${WHISPER_COMMIT:-$(git -C "$(dirname "$(readlink -f "$(command -v "$WHISPER_CLI")")")" rev-parse HEAD 2>/dev/null || echo unknown)}
+# Symlinks are followed by hand: plain readlink (no -f) exists on every macOS,
+# and a failed resolution must yield "unknown", never a git lookup in the cwd.
+resolve_cli() {
+  p=$(command -v "$WHISPER_CLI")
+  while [ -L "$p" ]; do
+    t=$(readlink "$p") || break
+    case $t in /*) p=$t ;; *) p=$(dirname "$p")/$t ;; esac
+  done
+  printf '%s' "$p"
+}
+WHISPER_COMMIT=${WHISPER_COMMIT:-$(CLI=$(resolve_cli); [ -n "$CLI" ] && git -C "$(dirname "$CLI")" rev-parse HEAD 2>/dev/null || echo unknown)}
 
 mkdir -p "$WORK_DIR/hyp" "$WORK_DIR/wav16k"
 

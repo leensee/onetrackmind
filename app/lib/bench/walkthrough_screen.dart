@@ -160,9 +160,19 @@ class _WalkthroughScreenState extends State<WalkthroughScreen>
           _cutFromBlock = (saved['cut_from_block'] as num).toInt();
           _sequence = cutToU12(_sequence, _cutFromBlock!);
         }
-        _blockIx = (saved['block_index'] as num).toInt();
-        _stepIx = 0;
-        _skipCardsBefore = (saved['step_index'] as num).toInt();
+        final blockIx = (saved['block_index'] as num?)?.toInt() ?? -1;
+        // Saved indices can go stale (sequence changed between versions) or
+        // arrive corrupted — out-of-range resume falls back to a fresh start.
+        if (blockIx >= 0 && blockIx < _sequence.blocks.length) {
+          _blockIx = blockIx;
+          _stepIx = 0;
+          _skipCardsBefore = ((saved['step_index'] as num?)?.toInt() ?? 0)
+              .clamp(0, _sequence.blocks[blockIx].steps.length);
+        } else {
+          _cutFromBlock = null;
+          _sequence = widget.sequence;
+          _deleteProgress();
+        }
       } else {
         _deleteProgress();
       }
