@@ -19,6 +19,11 @@ The **repository root** is legacy Dart-era scaffolding. The root `.gitignore`, a
 - **Tests:** `npm test` runs per-module suites as `tsx` scripts via `tsconfig.test.json` (currently 23 suites, ~577 assertions). Changed or new backend logic should come with a matching `tests/<module>.test.ts`.
 - **Fixtures corpus:** guarded by `tests/fixturesMeta.test.ts`, which enforces manifest↔filesystem sync, synthetic-only identifiers, and a no-invisible-character rule. Respect these invariants when touching `backend/tests/fixtures/`.
 
+## Flutter app checks (run from `app/`)
+
+- **Gate for any `app/` change:** `flutter analyze && flutter test` must pass locally. CI has no Flutter job — this gate is the only place the Flutter suite runs.
+- `flutter analyze` must exit 0; info-level findings fail the gate (and short-circuit the `&&`, silently skipping the tests). Wrap angle-bracket placeholders like `<storage>` in doc comments in backticks (`unintended_html_in_doc_comment`).
+
 ## Conventions
 
 - **Commits:** Conventional Commits — `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`.

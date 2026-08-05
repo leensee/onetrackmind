@@ -17,7 +17,7 @@ import 'submit_client.dart';
 /// explicitly. The PRODUCT capture queue uses SQLCipher-encrypted SQLite per
 /// Security & Compliance Policy §3.3, unchanged.
 ///
-/// Layout: <storage>/capture-queue/<entryId>/entry.json [+ audio.wav]
+/// Layout: `<storage>/capture-queue/<entryId>/entry.json` [+ audio.wav]
 /// Lifecycle mirrors the house `is_synced` vocabulary: written 0, flipped to
 /// 1 on confirmed receipt. On confirm the audio file is deleted immediately
 /// (device-side zero retention); the metadata sidecar is retained — pending
