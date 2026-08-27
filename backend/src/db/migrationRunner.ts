@@ -38,7 +38,7 @@ export interface MigrationFile {
 export type MigrationLoadResult =
   | { ok: true;  migrations: MigrationFile[] }
   | { ok: false;
-      cause: 'dir_not_found' | 'invalid_filename' | 'duplicate_version' | 'read_error';
+      cause: 'dir_not_found' | 'dir_unreadable' | 'invalid_filename' | 'duplicate_version' | 'read_error';
       detail: string };
 
 export interface AppliedMigration {
@@ -49,7 +49,7 @@ export interface AppliedMigration {
 export type MigrationRunResult =
   | { ok: true;  applied: AppliedMigration[]; skippedCount: number }
   | { ok: false;
-      cause: 'load_error' | 'tracker_error' | 'apply_error';
+      cause: 'load_error' | 'tracker_error' | 'drift_error' | 'apply_error';
       detail: string;
       version?: number;
       migrationName?: string };
@@ -141,8 +141,18 @@ export function loadMigrationsFromDir(dir: string): MigrationLoadResult {
   let entries: string[];
   try {
     entries = fs.readdirSync(dir);
-  } catch {
-    return { ok: false, cause: 'dir_not_found', detail: `migrations directory not found: ${dir}` };
+  } catch (err) {
+    // Only ENOENT means the directory is absent; EACCES, ENOTDIR,
+    // I/O errors, etc. are a different operational problem and must
+    // not be mislabeled as a missing directory.
+    if (errnoCodeOf(err) === 'ENOENT') {
+      return { ok: false, cause: 'dir_not_found', detail: `migrations directory not found: ${dir}` };
+    }
+    return {
+      ok: false,
+      cause: 'dir_unreadable',
+      detail: `failed to read migrations directory ${dir}: ${messageOf(err)}`,
+    };
   }
 
   const parsed: { version: number; name: string; filename: string }[] = [];
@@ -193,7 +203,12 @@ export function loadMigrationsFromDir(dir: string): MigrationLoadResult {
 // Each pending migration runs inside its own transaction: all
 // statements + the schema_migrations record commit together, or
 // the whole migration rolls back. Already-applied versions are
-// skipped (matched by version number).
+// skipped, but only when the file's name still matches the tracked
+// name — applied migrations are immutable under forward-only
+// discipline, so a renamed file means drift (or a version
+// collision) and fails the run loudly rather than silently
+// skipping. Content edits to applied files are NOT detected — that
+// would need a checksum column on the tracker.
 
 const TRACKER_DDL =
   'CREATE TABLE IF NOT EXISTS schema_migrations (' +
@@ -215,13 +230,13 @@ export async function runMigrations(
     return { ok: false, cause: 'load_error', detail: `${load.cause}: ${load.detail}` };
   }
 
-  let appliedVersions: Set<number>;
+  let appliedByVersion: Map<number, string>;
   try {
     await client.run(TRACKER_DDL, []);
-    const rows = await client.all<{ version: number }>(
-      'SELECT version FROM schema_migrations', []
+    const rows = await client.all<{ version: number; name: string }>(
+      'SELECT version, name FROM schema_migrations', []
     );
-    appliedVersions = new Set(rows.map((r) => r.version));
+    appliedByVersion = new Map(rows.map((r) => [r.version, r.name]));
   } catch (err) {
     return {
       ok: false,
@@ -234,7 +249,18 @@ export async function runMigrations(
   let skippedCount = 0;
 
   for (const migration of load.migrations) {
-    if (appliedVersions.has(migration.version)) {
+    const trackedName = appliedByVersion.get(migration.version);
+    if (trackedName !== undefined) {
+      if (trackedName !== migration.name) {
+        return {
+          ok: false,
+          cause: 'drift_error',
+          version: migration.version,
+          migrationName: migration.name,
+          detail: `applied version ${migration.version} is recorded as '${trackedName}' `
+            + `but the migration file is named '${migration.name}' — applied migrations must not be renamed`,
+        };
+      }
       skippedCount++;
       continue;
     }
@@ -293,4 +319,14 @@ function failApply(migration: MigrationFile, detail: string): MigrationRunResult
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+// Structural errno extraction — Node fs errors carry a string
+// `code`, but the thrown value is typed unknown and the lint gate
+// bans `as` casts, so narrow field-by-field instead.
+function errnoCodeOf(err: unknown): string | undefined {
+  if (typeof err === 'object' && err !== null && 'code' in err && typeof err.code === 'string') {
+    return err.code;
+  }
+  return undefined;
 }

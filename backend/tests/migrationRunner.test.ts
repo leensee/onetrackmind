@@ -126,6 +126,21 @@ async function runTests(): Promise<void> {
     assert(!res.ok && res.cause === 'dir_not_found', `unexpected: ${JSON.stringify(res)}`);
   });
 
+  await test('loadMigrationsFromDir: unreadable path → dir_unreadable with errno detail', () => {
+    // A regular file at the path makes readdir fail with ENOTDIR —
+    // a deterministic non-ENOENT failure needing no permission tricks.
+    const dir = makeTempDir();
+    const filePath = path.join(dir, 'not-a-dir');
+    fs.writeFileSync(filePath, '');
+    const res = loadMigrationsFromDir(filePath);
+    assert(!res.ok && res.cause === 'dir_unreadable',
+      `non-ENOENT failure must not be mislabeled dir_not_found: ${JSON.stringify(res)}`);
+    if (!res.ok) {
+      assert(res.detail.includes('ENOTDIR'),
+        `detail must carry the underlying error: ${res.detail}`);
+    }
+  });
+
   await test('loadMigrationsFromDir: bad filename → invalid_filename', () => {
     const dir = makeTempDir();
     fs.writeFileSync(path.join(dir, 'bad-name.sql'), 'SELECT 1;');
@@ -216,6 +231,25 @@ async function runTests(): Promise<void> {
     const res = await runMigrations(client, dir);
     assert(res.ok && res.applied.length === 1 && res.applied[0]!.version === 2
       && res.skippedCount === 1, `expected only 002 applied, got ${JSON.stringify(res)}`);
+    client.close();
+  });
+
+  await test('runMigrations: renamed applied migration → typed drift_error', async () => {
+    const dir = makeTempDir();
+    fs.writeFileSync(path.join(dir, '001_table.sql'), 'CREATE TABLE t1 (x TEXT);');
+    fs.writeFileSync(path.join(dir, '002_more.sql'), 'CREATE TABLE t2 (y TEXT);');
+    const client = createSqliteClient(':memory:');
+    const first = await runMigrations(client, dir);
+    assert(first.ok, `setup run must succeed, got ${JSON.stringify(first)}`);
+    fs.renameSync(path.join(dir, '001_table.sql'), path.join(dir, '001_renamed.sql'));
+    const res = await runMigrations(client, dir);
+    assert(!res.ok, 'renamed applied migration must fail the run, not be silently skipped');
+    if (!res.ok) {
+      assert(res.cause === 'drift_error' && res.version === 1 && res.migrationName === 'renamed',
+        `failure must identify the drifted migration, got ${JSON.stringify(res)}`);
+      assert(res.detail.includes("'table'") && res.detail.includes("'renamed'"),
+        `detail must name both sides of the drift: ${res.detail}`);
+    }
     client.close();
   });
 
