@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-OneTrackMind is currently in active development (Phase 2 of build). Only the latest commit on `main` is supported. No versioned releases have been published yet.
+OneTrackMind is in active pre-release development. Only the latest commit on `main` is supported. No versioned releases have been published yet.
 
 | Version | Supported |
 | ------- | --------- |
