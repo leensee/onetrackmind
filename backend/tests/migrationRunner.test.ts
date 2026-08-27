@@ -341,9 +341,14 @@ async function runTests(): Promise<void> {
   if (failed > 0) process.exit(1);
 }
 
+// Cleanup must run on the exit hook, not a .finally on the promise
+// chain: runTests() calls process.exit(1) on assertion failure,
+// which preempts finally handlers — temp dirs would leak on failing
+// runs. rmSync({ force: true }) makes a second invocation harmless.
+process.on('exit', cleanupTempDirs);
+
 runTests()
   .catch((err) => {
     console.error('Test runner error:', err);
     process.exit(1);
-  })
-  .finally(cleanupTempDirs);
+  });
