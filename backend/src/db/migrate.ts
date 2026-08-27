@@ -5,7 +5,9 @@
 // Opens the SQLite DB at BACKEND_SQLITE_PATH (dev default
 // data/backend.sqlite3, gitignored), applies pending migrations
 // from backend/migrations/, prints the outcome, exits non-zero
-// on failure. NOT wired into server boot — that is Phase 4.2.
+// on failure. NOT wired into server boot — that is deliverable
+// 4.2, scheduled inside Phase 12 (Communications Provider
+// Integration).
 // Logs paths and migration names only — never row data.
 // ============================================================
 
