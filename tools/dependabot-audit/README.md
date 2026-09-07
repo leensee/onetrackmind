@@ -43,7 +43,13 @@ sandbox disabled for that command; from a terminal it just works.
 
 Flags: `--merge`, `--cleanup`, `--report`, `--dry-run`, `--hold-major`
 (hold semver-major bumps for a human; off by default — the standing instruction
-is "auto-merge on all green"), `--post FILE`.
+is "auto-merge on all green"), `--post FILE`, `--detach`, `--wait [SEC]`,
+`--quiet-if-idle`, `--heartbeat DOW` (0 = Sunday … 6 = Saturday).
+
+```bash
+tools/dependabot-audit/audit.sh --detach --merge --cleanup --report --quiet-if-idle --heartbeat 1
+tools/dependabot-audit/audit.sh --wait 570        # exit 0 finished, 3 still running
+```
 
 Env: `OTM_REPO`, `OTM_CLONE`, `OTM_AUDIT_STATE`, `OTM_AUDIT_ISSUE`,
 `OTM_AUDIT_POLL`, `OTM_AUDIT_MAX_TOTAL`, `OTM_AUDIT_MAX_ROUND`,
@@ -66,8 +72,32 @@ A Claude Code desktop **scheduled task** (`dependabot-daily-audit`, cron
 when anything is held or stalls, investigates the failing check and posts a
 short "Analyst notes" addendum with `--post`. It runs while the Claude desktop
 app is open; a missed run fires at next launch. Tool approvals granted during a
-run are remembered by the task, so click "Run now" once after this lands to
-pre-approve the sandbox-disabled `gh` call.
+run are remembered by the task (first "Run now" done 2026-09-07).
+
+**Why daily when Dependabot's version updates are weekly:** security updates
+arrive on any day (both fast-uri fixes did), a PR held on red CI needs a retry
+the next day, and any human merge puts open Dependabot PRs BEHIND until
+something rebases them. The daily run costs a few seconds when the queue is
+empty. What would be noise is a daily *email* about an empty queue, so the task
+runs with `--quiet-if-idle --heartbeat 1`: an idle run is written locally but
+not dispatched, except on Mondays, which is also the morning after Dependabot's
+default weekly run (Monday 05:00 UTC) — so the Monday report normally carries
+the week's bumps already merged. To go fully weekly instead, change the task's
+cron to `13 7 * * 1` and drop the two flags.
+
+**Detach / wait.** A single Claude Code tool call is capped at 10 minutes and
+a full cascade can take longer (7 PRs took 12m42s on 2026-09-07), so the task
+never runs the script in the foreground. It calls
+`audit.sh --detach --merge --cleanup --report --quiet-if-idle --heartbeat 1`,
+which starts the run under `nohup` (log: `.otm-audit/last-run.log`) and
+returns once the run holds the lock, then polls with `audit.sh --wait 570`
+(exit 0 = finished, 3 = still running, call again) in chunks that each fit a
+tool call. `--wait` needs no `gh` auth. If a run is ever killed anyway, the
+TERM/INT/HUP trap still writes `summary.json` and `report.md` marked
+*interrupted*, dispatches the report, and releases the lock — merges already
+made are on GitHub and waiting PRs retry next run. `summary.json` records
+`report_delivery` (`dispatched`, `skipped_idle`, `dispatch_failed`,
+`dry_run`, `not_requested`) so the task can say whether an email went out.
 
 Headless fallback if the app is not open on the bench Mac: a user LaunchAgent
 that calls the script directly and pipes `summary.json` to
