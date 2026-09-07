@@ -269,8 +269,19 @@ FINAL_PRS="$(fetch_prs)"
 # ---------------------------------------------------------------- cleanup ----
 CLEANUP='{"skipped":true}'
 if [ "$DO_CLEANUP" = 1 ]; then
+  # Own state first: drop run directories older than OTM_AUDIT_KEEP_DAYS
+  # (default 30). The current run's directory is brand new and untouched.
+  KEEP_DAYS="${OTM_AUDIT_KEEP_DAYS:-30}"
+  runs_pruned=0
+  while IFS= read -r old_run; do
+    [ -n "$old_run" ] || continue
+    if [ "$DRY_RUN" = 1 ]; then log "dry-run: would prune old run dir $old_run"; else rm -rf "$old_run"; fi
+    runs_pruned=$((runs_pruned + 1))
+  done < <(find "$STATE_DIR/runs" -mindepth 1 -maxdepth 1 -type d -mtime +"$KEEP_DAYS" 2>/dev/null)
+  [ "$runs_pruned" -gt 0 ] && log "pruned $runs_pruned run dir(s) older than ${KEEP_DAYS}d"
+
   if [ ! -d "$CLONE/.git" ]; then
-    CLEANUP="$(jq -nc --arg c "$CLONE" '{skipped:true, reason:("clone not found at " + $c)}')"
+    CLEANUP="$(jq -nc --arg c "$CLONE" --argjson rp "$runs_pruned" '{skipped:true, reason:("clone not found at " + $c), runs_pruned:$rp}')"
   else
     removed_wt=(); removed_br=(); kept_dirty=(); orphans=(); main_note=""
     git -C "$CLONE" fetch --prune --quiet origin || true
@@ -313,12 +324,12 @@ if [ "$DO_CLEANUP" = 1 ]; then
         [ -z "$main_note" ] && main_note="main fast-forwarded to $(git -C "$CLONE" rev-parse --short origin/main)"
       else main_note="main clone dirty; not pulled"; fi
     else main_note="clone on $(git -C "$CLONE" rev-parse --abbrev-ref HEAD), not main; not pulled"; fi
-    CLEANUP="$(jq -nc --arg main "$main_note" \
+    CLEANUP="$(jq -nc --arg main "$main_note" --argjson rp "$runs_pruned" \
       --argjson wt "$(printf '%s\n' "${removed_wt[@]:-}" | jq -R . | jq -sc 'map(select(length>0))')" \
       --argjson br "$(printf '%s\n' "${removed_br[@]:-}" | jq -R . | jq -sc 'map(select(length>0))')" \
       --argjson dirty "$(printf '%s\n' "${kept_dirty[@]:-}" | jq -R . | jq -sc 'map(select(length>0))')" \
       --argjson orphans "$(printf '%s\n' "${orphans[@]:-}" | jq -R . | jq -sc 'map(select(length>0))')" \
-      '{skipped:false, worktrees_removed:$wt, branches_deleted:$br, kept_dirty:$dirty, orphan_dirs:$orphans, main:$main}')"
+      '{skipped:false, worktrees_removed:$wt, branches_deleted:$br, kept_dirty:$dirty, orphan_dirs:$orphans, main:$main, runs_pruned:$rp}')"
     log "cleanup: $(printf '%s' "$CLEANUP" | jq -c .)"
   fi
 fi
@@ -362,7 +373,7 @@ printf '%s' "$SUMMARY" | jq -r --arg owner "$OWNER_HANDLE" --arg tz "$(date '+%Z
   li(.open_after; "#\(.number) \(.title) — \(.verdict)" + (if .security then " · security" else "" end) + (if .major then " · major bump" else "" end)),
   "",
   "**Local cleanup** (" + (if .cleanup.skipped then "skipped" + (if .cleanup.reason then ": " + .cleanup.reason else "" end) else
-      "worktrees removed: \(.cleanup.worktrees_removed|length) · branches deleted: \(.cleanup.branches_deleted|length) · dirty worktrees kept: \(.cleanup.kept_dirty|length) · \(.cleanup.main)" end) + ")",
+      "worktrees removed: \(.cleanup.worktrees_removed|length) · branches deleted: \(.cleanup.branches_deleted|length) · dirty worktrees kept: \(.cleanup.kept_dirty|length) · old run dirs pruned: \(.cleanup.runs_pruned // 0) · \(.cleanup.main)" end) + ")",
   (if (.cleanup.skipped|not) then
      ([ (.cleanup.worktrees_removed[]? | "- removed worktree " + .),
         (.cleanup.branches_deleted[]?  | "- deleted branch `" + . + "`"),
