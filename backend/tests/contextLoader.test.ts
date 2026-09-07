@@ -158,6 +158,7 @@ const BASE_EDITION_CONFIG: EditionConfig = {
   },
   productName:              'OneTrackMind',
   feedbackIssueTitleFormat: '[audit-failure] {sessionId}',
+  feedbackIssueLabels:      ['audit-failure', 'regen-limit-reached'],
 };
 
 // ── Test Runner ───────────────────────────────────────────────

@@ -20,10 +20,10 @@
 
 import { randomUUID } from 'crypto';
 import {
-  DiagnosticSeverity,
   DiagnosticLogInput,
   DiagnosticPurgeResult,
 } from '../types';
+import { DiagnosticSeverity, DIAGNOSTIC_SEVERITIES } from '../../db/types';
 import { errorMessage } from '../typeUtils';
 import { Logger, createConsoleLogger } from '../../observability/logger';
 
@@ -36,9 +36,9 @@ export const DIAGNOSTIC_MAX_RETENTION_DAYS = 180;
 // so no caller can accidentally create a pre-synced record.
 const IS_NOT_SYNCED = 0;
 
-// Valid severity values — used by validateInput.
-// Must stay in sync with DiagnosticSeverity type in types.ts.
-const VALID_SEVERITIES: DiagnosticSeverity[] = ['info', 'warning', 'critical'];
+// Valid severity values — used by validateInput. Derived from the
+// canonical vocabulary in db/types.ts, so it cannot drift from the type.
+const VALID_SEVERITIES: readonly DiagnosticSeverity[] = DIAGNOSTIC_SEVERITIES;
 
 const defaultLogger: Logger = createConsoleLogger('DiagnosticLogger');
 

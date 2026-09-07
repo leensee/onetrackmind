@@ -25,7 +25,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { SqliteClient } from '../orchestration/types';
+import { SqliteClient } from './types';
 
 // ── Types ─────────────────────────────────────────────────────
 

@@ -78,10 +78,9 @@ export default [
       //     observability and config as leaves. Paths resolve against
       //     the lint working directory, which is always backend/
       //     (npm script locally, working-directory in CI).
-      //     SqliteClient/DiagnosticSeverity currently live in
-      //     orchestration/types.ts and are consumed below the
-      //     orchestration layer; types.ts is the sanctioned shared-
-      //     contract surface until relocation (otm#86).
+      //     Contracts consumed below Orchestration (SqliteClient,
+      //     DiagnosticSeverity) live in src/db/types.ts, a leaf, so
+      //     no zone needs an exception (otm#86 closed).
       'import-x/no-restricted-paths': [
         'error',
         {
@@ -89,16 +88,14 @@ export default [
             {
               target: './src/comms',
               from: './src/orchestration',
-              except: ['./types.ts'],
               message:
-                'Comms sits below Orchestration. Shared contracts may come from orchestration/types.ts only (relocation: otm#86).',
+                'Comms sits below Orchestration and may not import from it. Shared contracts (SqliteClient, DiagnosticSeverity) live in src/db/types.ts.',
             },
             {
               target: './src/db',
               from: './src/orchestration',
-              except: ['./types.ts'],
               message:
-                'Data layer sits below Orchestration. Shared contracts may come from orchestration/types.ts only (relocation: otm#86).',
+                'Data layer sits below Orchestration and may not import from it. Shared contracts (SqliteClient, DiagnosticSeverity) live in src/db/types.ts.',
             },
             {
               target: './src/db',

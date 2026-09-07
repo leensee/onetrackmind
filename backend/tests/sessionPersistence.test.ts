@@ -16,7 +16,8 @@ import {
   SessionPersistenceError,
   CURRENT_SCHEMA_VERSION,
 } from '../src/orchestration/sessionPersistence';
-import { SessionState, SessionLogEntry, SqliteClient } from '../src/orchestration/types';
+import { SessionState, SessionLogEntry } from '../src/orchestration/types';
+import { SqliteClient } from '../src/db/types';
 import { Logger, LogFields, noopLogger } from '../src/observability/logger';
 
 // ── Capturing Logger ──────────────────────────────────────────

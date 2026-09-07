@@ -14,6 +14,7 @@ import {
   waitForDecision,
   submitFeedback,
   FeedbackSubmitOptions,
+  DEFAULT_FEEDBACK_ISSUE_LABELS,
   runApprovalGate,
   ApprovalGateError,
   InboundDecisionEvent,
@@ -42,11 +43,14 @@ const BASE_PAYLOAD: FeedbackPayload = {
   },
 };
 
+const BASE_GITHUB = {
+  repo:        TEST_REPO,
+  titleFormat: TEST_TITLE_FORMAT,
+  labels:      [...DEFAULT_FEEDBACK_ISSUE_LABELS],
+};
+
 const BASE_OPTIONS: FeedbackSubmitOptions = {
-  github: {
-    repo:        TEST_REPO,
-    titleFormat: TEST_TITLE_FORMAT,
-  },
+  github: BASE_GITHUB,
 };
 
 // ── Test Runner ───────────────────────────────────────────────
@@ -423,7 +427,7 @@ async function runTests(): Promise<void> {
       return { ok: true, status: 201, statusText: 'Created' };
     };
     await submitFeedback(BASE_PAYLOAD, 'test-token', {
-      github: { repo: 'other-org/other-edition', titleFormat: '[x] {sessionId}' },
+      github: { ...BASE_GITHUB, repo: 'other-org/other-edition', titleFormat: '[x] {sessionId}' },
     });
     assert(
       capturedUrl.includes('other-org/other-edition'),
@@ -442,7 +446,7 @@ async function runTests(): Promise<void> {
       return { ok: true, status: 201, statusText: 'Created' };
     };
     await submitFeedback(BASE_PAYLOAD, 'test-token', {
-      github: { repo: TEST_REPO, titleFormat: '[audit-{sessionId}]-flagged' },
+      github: { ...BASE_GITHUB, titleFormat: '[audit-{sessionId}]-flagged' },
     });
     const body = capturedBody as { title: string };
     assert(
@@ -457,7 +461,7 @@ async function runTests(): Promise<void> {
     };
     const err = await assertRejects(
       () => submitFeedback(BASE_PAYLOAD, 'test-token', {
-        github: { repo: TEST_REPO, titleFormat: '[audit-failure] session-MISSING' },
+        github: { ...BASE_GITHUB, titleFormat: '[audit-failure] session-MISSING' },
       }),
       'ApprovalGateError',
       'must throw ApprovalGateError when titleFormat lacks {sessionId}'
@@ -473,7 +477,7 @@ async function runTests(): Promise<void> {
       return { ok: true, status: 201, statusText: 'Created' };
     };
     await submitFeedback(BASE_PAYLOAD, 'test-token', {
-      github: { repo: TEST_REPO, titleFormat: '[{sessionId}] duplicate-{sessionId}' },
+      github: { ...BASE_GITHUB, titleFormat: '[{sessionId}] duplicate-{sessionId}' },
     });
     const body = capturedBody as { title: string };
     assert(
@@ -519,6 +523,62 @@ async function runTests(): Promise<void> {
       'must propagate timeout'
     );
     assert(err.cause === 'timeout', 'cause must be timeout');
+  });
+
+  // ── submitFeedback label injection (otm#30) ──────────────────
+  await test('DEFAULT_FEEDBACK_ISSUE_LABELS is exactly the OTM v1 pair (anti-drift)', () => {
+    // These two labels are part of the GitHub Issues contract for OTM v1 —
+    // downstream filters and triage automation key off them. Changing the
+    // constant must be a deliberate decision, not a side effect.
+    assert(DEFAULT_FEEDBACK_ISSUE_LABELS.length === 2, `expected 2 labels, got ${DEFAULT_FEEDBACK_ISSUE_LABELS.length}`);
+    assert(DEFAULT_FEEDBACK_ISSUE_LABELS[0] === 'audit-failure', 'first label must be audit-failure');
+    assert(DEFAULT_FEEDBACK_ISSUE_LABELS[1] === 'regen-limit-reached', 'second label must be regen-limit-reached');
+  });
+
+  await test('submitFeedback: posts injected labels verbatim and does not retain the OTM v1 literals', async () => {
+    let capturedBody: unknown = null;
+    (global as unknown as { fetch: unknown }).fetch = async (_url: string, opts: RequestInit) => {
+      capturedBody = JSON.parse(opts.body as string);
+      return { ok: true, status: 201, statusText: 'Created' };
+    };
+    await submitFeedback(BASE_PAYLOAD, 'test-token', {
+      github: { ...BASE_GITHUB, labels: ['edition-x-triage', 'needs-review'] },
+    });
+    const body = capturedBody as { labels: string[] };
+    assert(
+      JSON.stringify(body.labels) === JSON.stringify(['edition-x-triage', 'needs-review']),
+      `labels must be posted verbatim and in order, got ${JSON.stringify(body.labels)}`
+    );
+    assert(
+      !body.labels.includes('audit-failure') && !body.labels.includes('regen-limit-reached'),
+      'must not retain OTM v1 label literals when a different set is injected'
+    );
+  });
+
+  await test('submitFeedback: posts an empty label list when the edition injects none', async () => {
+    let capturedBody: unknown = null;
+    (global as unknown as { fetch: unknown }).fetch = async (_url: string, opts: RequestInit) => {
+      capturedBody = JSON.parse(opts.body as string);
+      return { ok: true, status: 201, statusText: 'Created' };
+    };
+    await submitFeedback(BASE_PAYLOAD, 'test-token', { github: { ...BASE_GITHUB, labels: [] } });
+    const body = capturedBody as { labels: string[] };
+    assert(Array.isArray(body.labels) && body.labels.length === 0, 'an empty label set is valid and posted as []');
+  });
+
+  await test('submitFeedback: throws feedback_error on a blank label before calling GitHub', async () => {
+    (global as unknown as { fetch: unknown }).fetch = async () => {
+      throw new Error('fetch must not be called when a label is blank');
+    };
+    const err = await assertRejects(
+      () => submitFeedback(BASE_PAYLOAD, 'test-token', {
+        github: { ...BASE_GITHUB, labels: ['audit-failure', '  '] },
+      }),
+      'ApprovalGateError',
+      'must throw ApprovalGateError when a label is blank'
+    );
+    assert(err.cause === 'feedback_error', `cause must be feedback_error, got ${err.cause}`);
+    assert(err.message.includes('non-blank'), 'message must explain the label rule');
   });
 
   // ── Results ───────────────────────────────────────────────

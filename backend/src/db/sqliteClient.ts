@@ -1,8 +1,8 @@
 // ============================================================
 // OTM DB — Concrete SqliteClient over node:sqlite (built-in)
-// Implements the structural SqliteClient interface from
-// orchestration/types.ts — the rest of the backend stays
-// library-agnostic and keeps injecting the interface.
+// Implements the structural SqliteClient interface from ./types
+// (the data layer's own contract module) — the rest of the backend
+// stays library-agnostic and keeps injecting the interface.
 //
 // No module-level side effects — the database opens only when
 // createSqliteClient() is called. PRAGMA foreign_keys = ON is
@@ -15,7 +15,7 @@
 // ============================================================
 
 import { DatabaseSync } from 'node:sqlite';
-import { SqliteClient } from '../orchestration/types';
+import { SqliteClient } from './types';
 
 // Values node:sqlite accepts as anonymous bind parameters.
 // Local alias — @types/node has renamed this type across majors.

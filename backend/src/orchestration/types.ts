@@ -4,6 +4,12 @@
 // is injected via EditionConfig, not hardcoded here.
 // ============================================================
 
+// Contracts shared with the layers below Orchestration live in
+// src/db/types.ts (a leaf — see otm#86) and are re-exported here
+// so orchestration-side consumers can keep importing from './types'.
+import type { SqliteClient, DiagnosticSeverity } from '../db/types';
+export type { SqliteClient, DiagnosticSeverity };
+
 // ── Edition Configuration ───────────────────────────────────
 
 export interface EditionConfig {
@@ -16,6 +22,11 @@ export interface EditionConfig {
   auditConfig?: AuditConfig;
   productName: string;
   feedbackIssueTitleFormat: string;
+  // Labels applied to feedback issues. Part of the GitHub Issues
+  // contract — downstream filters and triage automation key off them —
+  // so an edition routing feedback to another repo sets its own.
+  // OTM v1 value: approvalGate.DEFAULT_FEEDBACK_ISSUE_LABELS.
+  feedbackIssueLabels: string[];
 }
 
 export interface ContextFieldConfig {
@@ -309,14 +320,9 @@ export interface SessionLogEntry {
 }
 
 // ── SQLite Client — shared structural interface ───────────────
-// Moved from sessionPersistence.ts — used by tool layer and
-// persistence layer. Structural — not tied to a specific library.
-
-export interface SqliteClient {
-  run(sql: string, params: unknown[]): Promise<void>;
-  get<T>(sql: string, params: unknown[]): Promise<T | undefined>;
-  all<T>(sql: string, params: unknown[]): Promise<T[]>;
-}
+// Canonical definition: src/db/types.ts (re-exported at the top of
+// this file). It moved there because comms and db consume it too,
+// and modules below Orchestration may not import from here (otm#86).
 
 // ── Machine / Fleet ───────────────────────────────────────────
 
@@ -379,8 +385,8 @@ export type SpecLookupResult =
 
 // Three severity levels — determined by the tool generating the event
 // via exported pure determineSeverity() functions. Never set by the
-// orchestrator directly.
-export type DiagnosticSeverity = 'info' | 'warning' | 'critical';
+// orchestrator directly. Canonical definition: src/db/types.ts
+// (DIAGNOSTIC_SEVERITIES), re-exported at the top of this file.
 
 // One diagnostic_log row in caller-facing shape.
 // isSynced: false until Phase 7 sync layer confirms Supabase write.
