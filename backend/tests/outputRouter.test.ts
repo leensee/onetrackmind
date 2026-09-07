@@ -21,6 +21,22 @@ import {
   PushSend,
 } from '../src/orchestration/outputRouter';
 import { RouteInstruction } from '../src/orchestration/types';
+import { Logger, LogFields } from '../src/observability/logger';
+
+// ── Capturing Logger ──────────────────────────────────────────
+// Injected through the Logger seam — no console monkey-patching.
+
+type Captured = { level: 'info' | 'warn' | 'error'; message: string; fields: LogFields | undefined };
+
+function capturingLogger(): { logger: Logger; lines: Captured[] } {
+  const lines: Captured[] = [];
+  const logger: Logger = {
+    info:  (message, fields) => { lines.push({ level: 'info',  message, fields }); },
+    warn:  (message, fields) => { lines.push({ level: 'warn',  message, fields }); },
+    error: (message, fields) => { lines.push({ level: 'error', message, fields }); },
+  };
+  return { logger, lines };
+}
 
 // ── Fixtures ──────────────────────────────────────────────────
 
@@ -213,20 +229,23 @@ async function runTests(): Promise<void> {
     assert(!enc.ciphertext.includes(SHORT_TEXT), 'ciphertext must not contain plaintext substring');
   });
 
-  test('formatForPush: invalid key — encryptedContent omitted, notification fires', () => {
-    // Suppress expected console.error during this test only
-    const origErr = console.error;
-    console.error = () => { /* swallow expected failure log */ };
-    try {
-      const result = formatForPush(SHORT_TEXT, 'session-001', TEST_PRODUCT_NAME, INVALID_TEST_KEY);
-      const notif  = result['notification'] as { title: string; body: string };
-      const data   = result['data']         as Record<string, unknown>;
-      assert(notif.title === TEST_PRODUCT_NAME, 'notification must still fire on key failure');
-      assert(data['sessionId'] === 'session-001', 'sessionId must be present on key failure');
-      assert(!('encryptedContent' in data), 'encryptedContent must be omitted on key failure');
-    } finally {
-      console.error = origErr;
-    }
+  test('formatForPush: invalid key — encryptedContent omitted, notification fires, failure logged', () => {
+    // The failure log goes to the injected Logger — nothing to monkey-patch.
+    const { logger, lines } = capturingLogger();
+    const result = formatForPush(SHORT_TEXT, 'session-001', TEST_PRODUCT_NAME, INVALID_TEST_KEY, logger);
+    const notif  = result['notification'] as { title: string; body: string };
+    const data   = result['data']         as Record<string, unknown>;
+    assert(notif.title === TEST_PRODUCT_NAME, 'notification must still fire on key failure');
+    assert(data['sessionId'] === 'session-001', 'sessionId must be present on key failure');
+    assert(!('encryptedContent' in data), 'encryptedContent must be omitted on key failure');
+    assert(
+      lines.some(l => l.level === 'error' && l.message.includes('encryption failed')),
+      'encryption failure must be logged through the injected logger'
+    );
+    assert(
+      !lines.some(l => JSON.stringify(l.fields ?? {}).includes(SHORT_TEXT)),
+      'log fields must never carry the plaintext'
+    );
   });
 
   test('formatForPush: body truncated to PUSH_BODY_MAX_CHARS', () => {

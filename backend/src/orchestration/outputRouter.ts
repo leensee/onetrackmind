@@ -54,6 +54,8 @@ export function encryptPayloadContent(
 // Takes audited, approved response text and routes it to the
 // correct channel with correct formatting applied.
 // Channel-specific clients are injected — never constructed here.
+// Logger is injected (RouterClients.logger / trailing parameter)
+// with a console-backed default.
 // Primary call always produces app-formatted output. Router
 // transforms for the channel.
 // ============================================================
@@ -64,11 +66,15 @@ import {
   FailedRecipient,
 } from './types';
 import { SMS_MARKDOWN_PATTERNS } from './formatters';
+import { errorMessage } from './typeUtils';
+import { Logger, createConsoleLogger } from '../observability/logger';
 
 // ── Constants ─────────────────────────────────────────────────
 
 export const SMS_MAX_CHARS        = 1_600;
 export const PUSH_BODY_MAX_CHARS  = 200;
+
+const defaultLogger: Logger = createConsoleLogger('OutputRouter');
 
 // ── Injected Client Types ─────────────────────────────────────
 // Router never constructs clients — all injected by orchestrator.
@@ -83,6 +89,7 @@ export interface RouterClients {
   pushSend?:     PushSend;
   fcmPayloadKey?: string;   // injected from FCM_PAYLOAD_KEY env var by orchestrator
   productName:   string;    // injected from EditionConfig.productName (FCM notification title)
+  logger?:       Logger;    // observability sink; console-backed default when absent
 }
 
 // ── Output Router Error ───────────────────────────────────────
@@ -161,14 +168,15 @@ export function formatForSms(text: string): string[] {
 }
 
 // ── Push Formatter ────────────────────────────────────────────
-// Pure function — exported for testing.
+// Pure apart from the injected logger — exported for testing.
 // Produces FCM-compatible payload.
 
 export function formatForPush(
   text:          string,
   sessionId:     string,
   productName:   string,
-  fcmPayloadKey?: string
+  fcmPayloadKey?: string,
+  logger:        Logger = defaultLogger
 ): Record<string, unknown> {
   let encryptedContent: EncryptedContent | undefined;
 
@@ -178,19 +186,13 @@ export function formatForPush(
     } catch (err) {
       // Encryption failed — omit fullContent, notification still fires.
       // Never transmit plaintext on key failure.
-      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-      console.error(
-        `[OutputRouter] FCM payload encryption failed — fullContent omitted: ` +
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-        `${(err as Error).message}`
-      );
+      logger.error('FCM payload encryption failed — fullContent omitted', {
+        detail: errorMessage(err),
+      });
     }
   } else {
     // Key not configured — omit fullContent, notification still fires.
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      '[OutputRouter] FCM_PAYLOAD_KEY not configured — fullContent omitted from push payload.'
-    );
+    logger.warn('FCM_PAYLOAD_KEY not configured — fullContent omitted from push payload');
   }
 
   const data: Record<string, unknown> = { sessionId };
@@ -229,8 +231,7 @@ export async function routeToApp(
       channel:      'app',
       success:      false,
       delivered:    [],
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      failed:       [{ recipient: 'app', reason: (err as Error).message }],
+      failed:       [{ recipient: 'app', reason: errorMessage(err) }],
       segmentCount: 0,
       requestId:    instruction.requestId,
     };
@@ -266,8 +267,7 @@ export async function routeToSms(
       try {
         await smsSend(recipient, segment);
       } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-        failed.push({ recipient, reason: (err as Error).message });
+        failed.push({ recipient, reason: errorMessage(err) });
         recipientFailed = true;
         break; // Stop sending segments to this recipient on failure
       }
@@ -293,7 +293,8 @@ export async function routeToPush(
   instruction:  RouteInstruction,
   pushSend:     PushSend,
   productName:  string,
-  fcmPayloadKey?: string
+  fcmPayloadKey?: string,
+  logger:       Logger = defaultLogger
 ): Promise<RouteResult> {
   const { recipients, requestId } = instruction;
 
@@ -306,7 +307,9 @@ export async function routeToPush(
     );
   }
 
-  const payload  = formatForPush(responseText, instruction.sessionId, productName, fcmPayloadKey);
+  const payload  = formatForPush(
+    responseText, instruction.sessionId, productName, fcmPayloadKey, logger
+  );
   const delivered: string[] = [];
   const failed: FailedRecipient[] = [];
 
@@ -315,8 +318,7 @@ export async function routeToPush(
       await pushSend(token, payload);
       delivered.push(token);
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      failed.push({ recipient: token, reason: (err as Error).message });
+      failed.push({ recipient: token, reason: errorMessage(err) });
     }
   }
 
@@ -330,12 +332,14 @@ export async function routeToPush(
   };
 }
 
-export function routeToLog(instruction: RouteInstruction): RouteResult {
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[OutputRouter] log-only requestId=${instruction.requestId} ` +
-    `sessionId=${instruction.sessionId}`
-  );
+export function routeToLog(
+  instruction: RouteInstruction,
+  logger:      Logger = defaultLogger
+): RouteResult {
+  logger.info('log-only', {
+    requestId: instruction.requestId,
+    sessionId: instruction.sessionId,
+  });
   return {
     channel:      'log',
     success:      true,
@@ -354,6 +358,7 @@ export async function routeOutput(
   clients:      RouterClients
 ): Promise<RouteResult> {
   const { channel, requestId } = instruction;
+  const logger = clients.logger ?? defaultLogger;
 
   switch (channel) {
     case 'app': {
@@ -384,12 +389,12 @@ export async function routeOutput(
         );
       }
       return routeToPush(
-        responseText, instruction, clients.pushSend, clients.productName, clients.fcmPayloadKey
+        responseText, instruction, clients.pushSend, clients.productName, clients.fcmPayloadKey, logger
       );
     }
 
     case 'log':
-      return routeToLog(instruction);
+      return routeToLog(instruction, logger);
 
     default: {
       const exhaustiveCheck: never = channel;

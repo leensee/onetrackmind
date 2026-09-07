@@ -146,8 +146,12 @@ export function assembleCommsLogRecord(
       };
     default: {
       const impossible: never = input;
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- never-branch diagnostic formatting on the exhaustive switch (otm#85)
-      const impossibleDirection = (impossible as { direction?: unknown }).direction;
+      // `never` widens to unknown by assignment; `in` narrows for the diagnostic read — no cast.
+      const impossibleValue: unknown = impossible;
+      const impossibleDirection =
+        typeof impossibleValue === 'object' && impossibleValue !== null && 'direction' in impossibleValue
+          ? impossibleValue.direction
+          : undefined;
       throw new Error(
         `assembleCommsLogRecord: malformed input direction ${String(impossibleDirection)}`,
       );

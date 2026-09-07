@@ -18,6 +18,10 @@ import {
   SpecLookupInput,
   SpecLookupResult,
 } from '../types';
+import { errorMessage } from '../typeUtils';
+import { Logger, createConsoleLogger } from '../../observability/logger';
+
+const defaultLogger: Logger = createConsoleLogger('SpecLookup');
 
 // ── Narrow DB Interface ───────────────────────────────────────
 
@@ -190,7 +194,10 @@ export function buildSpecLookupResult(
 
 // ── DB Queries ────────────────────────────────────────────────
 
-export async function fetchRoster(db: SpecLookupDbClient): Promise<MachineRosterEntry[]> {
+export async function fetchRoster(
+  db:     SpecLookupDbClient,
+  logger: Logger = defaultLogger
+): Promise<MachineRosterEntry[]> {
   const rows = await db.all<RawRosterRow>(
     `SELECT machine_id, position, full_name, machine_type, serial_number, common_names
      FROM fleet_master
@@ -201,10 +208,7 @@ export async function fetchRoster(db: SpecLookupDbClient): Promise<MachineRoster
     try {
       return mapRosterRow(row);
     } catch {
-      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-      console.warn(
-        `[SpecLookup] skipping malformed roster row index=${idx} machine_id=${row.machine_id}`
-      );
+      logger.warn('skipping malformed roster row', { index: idx, machineId: row.machine_id });
       return null;
     }
   }).filter((m): m is MachineRosterEntry => m !== null);
@@ -228,20 +232,20 @@ export async function fetchSpecRows(
 // Throws only on precondition violations (null client, etc.).
 
 export async function specLookup(
-  input: SpecLookupInput,
-  db:    SpecLookupDbClient
+  input:  SpecLookupInput,
+  db:     SpecLookupDbClient,
+  logger: Logger = defaultLogger
 ): Promise<SpecLookupResult> {
   const { identifier, keys, sessionId, requestId } = input;
 
   let roster: MachineRosterEntry[];
   try {
-    roster = await fetchRoster(db);
+    roster = await fetchRoster(db, logger);
   } catch (err) {
     return {
       status:  'error',
       cause:   'db_error',
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      message: `Roster fetch failed [sessionId=${sessionId} requestId=${requestId}]: ${(err as Error).message}`,
+      message: `Roster fetch failed [sessionId=${sessionId} requestId=${requestId}]: ${errorMessage(err)}`,
     };
   }
 
@@ -273,8 +277,7 @@ export async function specLookup(
     return {
       status:  'error',
       cause:   'db_error',
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      message: `Spec fetch failed [machineId=${machine.machineId} sessionId=${sessionId}]: ${(err as Error).message}`,
+      message: `Spec fetch failed [machineId=${machine.machineId} sessionId=${sessionId}]: ${errorMessage(err)}`,
     };
   }
 

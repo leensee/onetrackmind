@@ -18,6 +18,10 @@
 // sequence source out of module-level mutable state.
 // ============================================================
 
+import { Logger, createConsoleLogger } from '../../observability/logger';
+
+const defaultLogger: Logger = createConsoleLogger('poSequence');
+
 // ── Narrow DB Interface ───────────────────────────────────────
 
 export interface PoSequenceDbClient {
@@ -38,7 +42,8 @@ export interface PoSequenceDbClient {
 // implementation without touching orchestratorTools.ts.
 
 export function createInMemoryPoSequenceStore(
-  seed?: Record<string, number>
+  seed?:  Record<string, number>,
+  logger: Logger = defaultLogger
 ): PoSequenceDbClient {
   const counters = new Map<string, number>(
     seed ? Object.entries(seed) : []
@@ -49,11 +54,9 @@ export function createInMemoryPoSequenceStore(
     async allocateNext(userId: string): Promise<number> {
       if (!warnedAboutPlaceholder && process.env.NODE_ENV === 'production') {
         warnedAboutPlaceholder = true;
-        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-        console.warn(
-          '[poSequence] Using in-memory placeholder — counter will ' +
-          'reset on process restart and does not span processes. ' +
-          'TODO(phase-7-db): swap for DB-backed PoSequenceDbClient.'
+        logger.warn(
+          'Using in-memory placeholder — counter resets on process restart and does not ' +
+          'span processes. Swap for a DB-backed PoSequenceDbClient (phase-7-db).'
         );
       }
       const current = counters.get(userId) ?? 0;

@@ -62,8 +62,11 @@ export default [
       'import-x/parsers': { '@typescript-eslint/parser': ['.ts'] },
     },
     linterOptions: {
-      // v9 default, made explicit: stale suppressions surface as
-      // non-gating warnings as the otm#27 sweep proceeds.
+      // v9 default, made explicit: a suppression that stops being
+      // needed surfaces as a non-gating warning. After the otm#27 /
+      // otm#85 sweeps the only remaining suppressions are the
+      // sanctioned narrow-waist casts (typeUtils, sqliteClient,
+      // db/mapping/serializers), each with its own rationale.
       reportUnusedDisableDirectives: 'warn',
     },
     rules: {

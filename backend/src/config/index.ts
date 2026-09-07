@@ -6,17 +6,23 @@
 //
 // Import `env` from here in all backend modules that need config.
 // Tests import from `./env` (pure functions, no side effects).
+// Startup status goes through the injected Logger seam
+// (src/observability/logger.ts); the console-backed default is
+// used at boot because nothing else exists yet to inject.
 // ============================================================
 
 import { loadEnv, OtmEnv, EnvConfigError } from './env';
+import { Logger, createConsoleLogger } from '../observability/logger';
 
 export type { OtmEnv };
 export { EnvConfigError };
 
+const defaultLogger: Logger = createConsoleLogger('Env');
+
 // ── Startup Status Log ────────────────────────────────────────
 // Key names only — values are never logged at any level.
 
-function logStartupStatus(result: Readonly<OtmEnv>): void {
+function logStartupStatus(result: Readonly<OtmEnv>, logger: Logger = defaultLogger): void {
   const optional: Array<{ label: string; present: boolean }> = [
     { label: 'TWILIO_ACCOUNT_SID',    present: result.twilioAccountSid    !== undefined },
     { label: 'TWILIO_AUTH_TOKEN',     present: result.twilioAuthToken     !== undefined },
@@ -27,20 +33,14 @@ function logStartupStatus(result: Readonly<OtmEnv>): void {
   const present = optional.filter(v =>  v.present).map(v => v.label);
   const absent  = optional.filter(v => !v.present).map(v => v.label);
 
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    '[Env] Required vars loaded: FCM_PAYLOAD_KEY, ANTHROPIC_API_KEY, ' +
-    'SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY'
-  );
+  logger.info('Required vars loaded', {
+    required: 'FCM_PAYLOAD_KEY, ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY',
+  });
   if (present.length > 0) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(`[Env] Optional vars present: ${present.join(', ')}`);
+    logger.info('Optional vars present', { present: present.join(', ') });
   }
   if (absent.length > 0) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      `[Env] Optional vars absent (expected for current phase): ${absent.join(', ')}`
-    );
+    logger.warn('Optional vars absent (expected for current phase)', { absent: absent.join(', ') });
   }
 }
 

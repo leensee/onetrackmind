@@ -3,6 +3,7 @@
 // Owns all todo-related actions: create, status update,
 // and TimeLog write stub (pending Phase 7 schema design).
 // DB client is injected — never constructed here.
+// Logger is injected (trailing parameter) — console-backed default.
 // All queries parameterized — no string interpolation.
 // Tool is pure — orchestrator owns all approval gate routing.
 // ============================================================
@@ -15,6 +16,8 @@ import {
   TodoUpdateInput,
   TodoDraft,
 } from '../types';
+import { errorMessage } from '../typeUtils';
+import { Logger, createConsoleLogger } from '../../observability/logger';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -35,6 +38,8 @@ const VALID_TIME_SENSITIVITIES: TodoTimeSensitivity[] = [
 ];
 
 const VALID_TERMINAL_STATUSES = ['done', 'dismissed'] as const;
+
+const defaultLogger: Logger = createConsoleLogger('TodoTool');
 
 // ── Narrow DB Interface ───────────────────────────────────────
 
@@ -106,17 +111,14 @@ export function validateUpdateInput(input: TodoUpdateInput): string | null {
 // Serializes optional metadata to JSON or null.
 // Never throws — catches serialization failure.
 export function serializeTodoMetadata(
-  metadata: Record<string, unknown> | undefined
+  metadata: Record<string, unknown> | undefined,
+  logger:   Logger = defaultLogger
 ): string | null {
   if (!metadata || Object.keys(metadata).length === 0) return null;
   try {
     return JSON.stringify(metadata);
   } catch (err) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `[TodoTool] metadata serialization failed — omitting: ${(err as Error).message}`
-    );
+    logger.warn('metadata serialization failed — omitting', { detail: errorMessage(err) });
     return null;
   }
 }
@@ -125,7 +127,8 @@ export function serializeTodoMetadata(
 // Returns discriminated result — orchestrator checks ok before routing.
 // Never throws.
 export function buildTodoDraft(
-  input: TodoCreateInput
+  input:  TodoCreateInput,
+  logger: Logger = defaultLogger
 ): { ok: true; draft: TodoDraft } | { ok: false; error: string } {
   const validationError = validateCreateInput(input);
   if (validationError) return { ok: false, error: validationError };
@@ -139,7 +142,7 @@ export function buildTodoDraft(
       timeSensitivity: input.timeSensitivity,
       equipmentId:     input.equipmentId,
       linkedContactId: input.linkedContactId,
-      metadataJson:    serializeTodoMetadata(input.metadata),
+      metadataJson:    serializeTodoMetadata(input.metadata, logger),
     };
     if (input.dueDate           !== undefined) draft.dueDate           = input.dueDate;
     if (input.equipmentNote     !== undefined) draft.equipmentNote     = input.equipmentNote;
@@ -153,8 +156,9 @@ export function buildTodoDraft(
 // Writes approved TodoDraft to todos table with status=open.
 // Called by orchestrator after approval gate resolves 'approve'.
 export async function writeTodo(
-  draft: TodoDraft,
-  db:    TodoWriteDbClient
+  draft:  TodoDraft,
+  db:     TodoWriteDbClient,
+  logger: Logger = defaultLogger
 ): Promise<TodoWriteResult> {
   const todoId    = randomUUID();
   const timestamp = new Date().toISOString();
@@ -174,16 +178,16 @@ export async function writeTodo(
         draft.metadataJson, timestamp, IS_NOT_SYNCED,
       ]
     );
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(
-      `[TodoTool] todo written todoId=${todoId} category=${draft.category} ` +
-      `timeSensitivity=${draft.timeSensitivity} sessionId=${draft.sessionId}`
-    );
+    logger.info('todo written', {
+      todoId,
+      category:        draft.category,
+      timeSensitivity: draft.timeSensitivity,
+      sessionId:       draft.sessionId,
+    });
     return null;
   } catch (err) {
     return new TodoWriteError(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `Write failed: ${(err as Error).message}`,
+      `Write failed: ${errorMessage(err)}`,
       draft.sessionId, draft.requestId, 'write_error'
     );
   }
@@ -207,8 +211,9 @@ export async function writeTimeLogEntry(
 // On done: attempts TimeLog write — failure is non-fatal (logged as warn).
 // On any DB failure: returns TodoWriteError. Never throws.
 export async function updateTodoStatus(
-  input: TodoUpdateInput,
-  db:    TodoWriteDbClient
+  input:  TodoUpdateInput,
+  db:     TodoWriteDbClient,
+  logger: Logger = defaultLogger
 ): Promise<TodoWriteResult> {
   const validationError = validateUpdateInput(input);
   if (validationError) {
@@ -227,8 +232,7 @@ export async function updateTodoStatus(
     );
   } catch (err) {
     return new TodoWriteError(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `Todo lookup failed: ${(err as Error).message}`,
+      `Todo lookup failed: ${errorMessage(err)}`,
       input.sessionId, input.requestId, 'write_error'
     );
   }
@@ -247,8 +251,7 @@ export async function updateTodoStatus(
     );
   } catch (err) {
     return new TodoWriteError(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `Status update failed: ${(err as Error).message}`,
+      `Status update failed: ${errorMessage(err)}`,
       input.sessionId, input.requestId, 'write_error'
     );
   }
@@ -259,19 +262,14 @@ export async function updateTodoStatus(
     } catch (err) {
       // TimeLog write failure is non-fatal — todo is already marked done.
       // Will be re-attempted when TimeLog is implemented in Phase 7.
-      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-      console.warn(
-        `[TodoTool] TimeLog write skipped todoId=${input.todoId}: ` +
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-        `${(err as Error).message}`
-      );
+      logger.warn('TimeLog write skipped', { todoId: input.todoId, detail: errorMessage(err) });
     }
   }
 
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[TodoTool] todo updated todoId=${input.todoId} ` +
-    `status=${input.status} sessionId=${input.sessionId}`
-  );
+  logger.info('todo updated', {
+    todoId:    input.todoId,
+    status:    input.status,
+    sessionId: input.sessionId,
+  });
   return null;
 }

@@ -9,6 +9,9 @@
 
 import { EventType, ProcessedEvent, EventMetadata, NormalizedEmailNotification } from './types';
 import { extractString } from './typeUtils';
+import { Logger, createConsoleLogger } from '../observability/logger';
+
+const defaultLogger: Logger = createConsoleLogger('EventClassifier');
 
 // ── Source Types ─────────────────────────────────────────────
 // Set by the route handler before calling classifyEvent.
@@ -206,7 +209,7 @@ function buildMetadata(input: RawInput): EventMetadata {
 
 // ── Main Classifier ───────────────────────────────────────────
 
-export function classifyEvent(input: RawInput): ProcessedEvent {
+export function classifyEvent(input: RawInput, logger: Logger = defaultLogger): ProcessedEvent {
   const eventType = SOURCE_TO_EVENT_TYPE[input.source];
 
   let rawContent: string;
@@ -240,12 +243,14 @@ export function classifyEvent(input: RawInput): ProcessedEvent {
   const metadata = buildMetadata(input);
 
   // Log classification — no body content, no PII beyond session/request IDs
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[EventClassifier] requestId=${input.requestId} source=${input.source} ` +
-    `eventType=${eventType} sessionId=${input.sessionId}` +
-    (metadata.emailProvider ? ` emailProvider=${metadata.emailProvider}` : '')
-  );
+  const fields: Record<string, unknown> = {
+    requestId: input.requestId,
+    source:    input.source,
+    eventType,
+    sessionId: input.sessionId,
+  };
+  if (metadata.emailProvider) fields['emailProvider'] = metadata.emailProvider;
+  logger.info('classified', fields);
 
   return {
     eventType,

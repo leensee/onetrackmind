@@ -81,6 +81,18 @@ export const CT_IDENTIFIERS_SHAPE_MSG =
  * meta-test's checker). Returns the ORIGINAL parsed items so extra
  * keys and key order survive the round-trip back to canonical JSON.
  */
+/**
+ * Type predicate for one identifiers element: a non-array object carrying
+ * string channel + value (extra keys tolerated). `in` narrowing — no cast.
+ */
+function isContactIdentifier(item: unknown): item is ContactIdentifier {
+  return (
+    typeof item === 'object' && item !== null && !Array.isArray(item) &&
+    'channel' in item && typeof item.channel === 'string' &&
+    'value' in item && typeof item.value === 'string'
+  );
+}
+
 export function parseContactIdentifiers(text: string): MapResult<ContactIdentifier[]> {
   let parsed: unknown;
   try {
@@ -91,19 +103,12 @@ export function parseContactIdentifiers(text: string): MapResult<ContactIdentifi
   if (!Array.isArray(parsed)) {
     return { ok: false, reason: 'wrong_shape', detail: CT_IDENTIFIERS_SHAPE_MSG };
   }
-  for (const item of parsed) {
-    if (
-      typeof item !== 'object' || item === null || Array.isArray(item) ||
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): DAL validation internals, checked field-by-field
-      typeof (item as Record<string, unknown>).channel !== 'string' ||
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): DAL validation internals, checked field-by-field
-      typeof (item as Record<string, unknown>).value !== 'string'
-    ) {
-      return { ok: false, reason: 'wrong_shape', detail: CT_IDENTIFIERS_SHAPE_MSG };
-    }
+  // Type-predicate `every` narrows parsed to ContactIdentifier[]; the original
+  // items are returned so extra keys and key order survive the round-trip.
+  if (!parsed.every(isContactIdentifier)) {
+    return { ok: false, reason: 'wrong_shape', detail: CT_IDENTIFIERS_SHAPE_MSG };
   }
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): DAL validation internals, checked field-by-field
-  return { ok: true, value: parsed as ContactIdentifier[] };
+  return { ok: true, value: parsed };
 }
 
 // ── IK-DAL-EXPIRY-ARITHMETIC ────────────────────────────────────
