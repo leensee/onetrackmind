@@ -89,9 +89,11 @@ that calls the script directly and pipes `summary.json` to
 | cleanup `kept (dirty)` | a worktree has uncommitted changes | finish or discard the work by hand |
 | exit 3 "another audit run holds lock" | a run is in progress (or crashed <2 h ago) | wait, or `rm -rf ~/OneTrackMind/.otm-audit/lock` if you are sure |
 
-## Recommended follow-up (not done here)
+## Dependabot grouping (in place since PR #129)
 
-Add `groups:` to `.github/dependabot.yml` so weekly bumps arrive as one or two
-PRs instead of six; the cascade then costs one CI round instead of six. Also
-consider adding `/tools/bench-receiver` as a version-update directory — today it
-only receives security updates.
+`.github/dependabot.yml` groups backend minor/patch bumps into two PRs
+(production / development by `dependency-type`), groups `/tools/bench-receiver`
+and GitHub Actions bumps, and leaves majors as individual PRs so each is
+visible. A typical week is therefore two or three PRs and the cascade settles
+in one or two CI rounds. If a whole group is held, Dependabot's PR body lists
+every member, so the culprit is still identifiable.
