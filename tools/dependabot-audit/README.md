@@ -18,7 +18,9 @@ issue for the automation: #124. Report log (one comment per run): #125.
 5. Local cleanup in the clone (`~/OneTrackMind/code`): `fetch --prune`,
    `worktree prune`, remove **clean** worktrees whose branch is gone or merged,
    delete local branches whose upstream is gone, fast-forward `main`. Dirty
-   worktrees and non-empty orphan dirs are listed and left alone.
+   worktrees and non-empty orphan dirs are listed and left alone. The script
+   also prunes its own run directories older than 30 days
+   (`OTM_AUDIT_KEEP_DAYS`), so `.otm-audit/runs/` stays bounded.
 6. Writes `summary.json` + `report.md` under `~/OneTrackMind/.otm-audit/runs/<ts>/`
    and dispatches `.github/workflows/dependabot-audit-report.yml`, which posts
    the report on #125 as `github-actions[bot]` — that comment is what GitHub
@@ -44,7 +46,8 @@ Flags: `--merge`, `--cleanup`, `--report`, `--dry-run`, `--hold-major`
 is "auto-merge on all green"), `--post FILE`.
 
 Env: `OTM_REPO`, `OTM_CLONE`, `OTM_AUDIT_STATE`, `OTM_AUDIT_ISSUE`,
-`OTM_AUDIT_POLL`, `OTM_AUDIT_MAX_TOTAL`, `OTM_AUDIT_MAX_ROUND`, `OTM_OWNER_HANDLE`.
+`OTM_AUDIT_POLL`, `OTM_AUDIT_MAX_TOTAL`, `OTM_AUDIT_MAX_ROUND`,
+`OTM_AUDIT_KEEP_DAYS` (run-dir retention, default 30), `OTM_OWNER_HANDLE`.
 
 ## Merge rules
 
