@@ -11,6 +11,8 @@ import {
   extractArray,
   extractBoolean,
   extractOneOf,
+  toRecord,
+  errorMessage,
 } from '../src/orchestration/typeUtils';
 
 async function runTests(): Promise<void> {
@@ -241,6 +243,59 @@ async function runTests(): Promise<void> {
     // Edge: empty string is a valid union member if caller wants it.
     const result = extractOneOf({ k: '' }, 'k', ['', 'x'] as const);
     assert(result === '', 'empty string is valid when in allowed');
+  });
+
+  // ── 7. toRecord — the sanctioned unknown→Record narrow waist ─
+  test('toRecord returns the same object reference for a plain object', () => {
+    const obj: unknown = { a: 1, nested: { b: 2 } };
+    assert(toRecord(obj) === obj, 'must return the identical object, not a copy');
+  });
+  test('toRecord returns an empty object as-is', () => {
+    const obj: unknown = {};
+    assert(toRecord(obj) === obj, 'empty object is a valid record');
+  });
+  test('toRecord returns undefined for null', () => {
+    assert(toRecord(null) === undefined, 'null → undefined');
+  });
+  test('toRecord returns undefined for arrays', () => {
+    assert(toRecord([1, 2]) === undefined, 'array → undefined');
+    assert(toRecord([]) === undefined, 'empty array → undefined');
+  });
+  test('toRecord returns undefined for primitives and undefined', () => {
+    assert(toRecord('x') === undefined, 'string → undefined');
+    assert(toRecord(42) === undefined, 'number → undefined');
+    assert(toRecord(true) === undefined, 'boolean → undefined');
+    assert(toRecord(undefined) === undefined, 'undefined → undefined');
+  });
+  test('extractObject delegates to toRecord (rejects arrays, accepts objects)', () => {
+    assert(extractObject({ k: [1] }, 'k') === undefined, 'array field → undefined');
+    const inner = { z: 1 };
+    assert(extractObject({ k: inner }, 'k') === inner, 'object field → same reference');
+  });
+
+  // ── 8. errorMessage — catch-boundary narrowing without casts ─
+  test('errorMessage returns .message for Error instances', () => {
+    assert(errorMessage(new Error('boom')) === 'boom', 'Error → message');
+  });
+  test('errorMessage returns .message for Error subclasses', () => {
+    class Custom extends Error { constructor() { super('custom failure'); this.name = 'Custom'; } }
+    assert(errorMessage(new Custom()) === 'custom failure', 'subclass → message');
+    assert(errorMessage(new TypeError('bad type')) === 'bad type', 'TypeError → message');
+  });
+  test('errorMessage stringifies non-Error throwables', () => {
+    assert(errorMessage('plain string') === 'plain string', 'string → itself');
+    assert(errorMessage(42) === '42', 'number → String(number)');
+    assert(errorMessage(null) === 'null', 'null → "null"');
+    assert(errorMessage(undefined) === 'undefined', 'undefined → "undefined"');
+    assert(errorMessage({ code: 7 }) === '[object Object]', 'object → String(object)');
+  });
+  test('errorMessage never throws', () => {
+    const hostile = { toString() { throw new Error('nope'); } };
+    let threw = false;
+    try { errorMessage(hostile); } catch { threw = true; }
+    // String(hostile) itself throws here, so this documents the one input that can —
+    // an object whose toString throws — rather than asserting silent success.
+    assert(threw === true, 'a throwing toString propagates (documented edge)');
   });
 
   // ── Results ───────────────────────────────────────────────

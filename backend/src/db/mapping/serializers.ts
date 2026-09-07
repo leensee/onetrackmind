@@ -73,6 +73,6 @@ export function jsonObjectFromDb(text: string, column: string): MapResult<Record
   if (typeof parsed.value !== 'object' || parsed.value === null || Array.isArray(parsed.value)) {
     return { ok: false, reason: 'wrong_shape', detail: `${column}: expected a JSON object` };
   }
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): DAL validation internals, checked field-by-field
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: the data layer's single unknown→Record narrowing (the layer rule forbids importing orchestration/typeUtils.toRecord); the shape check on the line above is the guard
   return { ok: true, value: parsed.value as Record<string, unknown> };
 }

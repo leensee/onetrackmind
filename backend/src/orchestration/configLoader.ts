@@ -8,6 +8,7 @@
 // ============================================================
 
 import path from 'path';
+import { toRecord, errorMessage } from './typeUtils';
 
 // Two levels up from src/orchestration/ → backend/
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -44,32 +45,30 @@ function getCandidateModulePaths(configPath: string): string[] {
 
 function requireConfigModule(configPath: string, exportName: string): unknown {
   const candidatePaths = getCandidateModulePaths(configPath);
-  let lastError: Error | undefined;
+  let lastDetail: string | undefined;
 
   for (const candidatePath of candidatePaths) {
     try {
       return require(candidatePath);
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      lastError = err as Error;
+      lastDetail = errorMessage(err);
     }
   }
 
   throw new Error(
-    `Failed to load config module at '${configPath}' (export '${exportName}'): ${lastError?.message ?? 'Unknown error'}`
+    `Failed to load config module at '${configPath}' (export '${exportName}'): ${lastDetail ?? 'Unknown error'}`
   );
 }
 
 export function loadStringExport(configPath: string, exportName: string): string {
-  const mod = requireConfigModule(configPath, exportName);
-  if (typeof mod !== 'object' || mod === null) {
+  const mod = toRecord(requireConfigModule(configPath, exportName));
+  if (mod === undefined) {
     throw new Error(
       `Config module at '${configPath}' did not export an object.`
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-  const value = (mod as Record<string, unknown>)[exportName];
+  const value = mod[exportName];
   if (typeof value !== 'string') {
     throw new Error(
       `Config module at '${configPath}' must export a string '${exportName}'.`

@@ -21,6 +21,31 @@ import { SqliteClient } from '../orchestration/types';
 // Local alias — @types/node has renamed this type across majors.
 type BindValue = null | number | bigint | string | Uint8Array;
 
+function isBindValue(value: unknown): value is BindValue {
+  return (
+    value === null ||
+    typeof value === 'number' ||
+    typeof value === 'bigint' ||
+    typeof value === 'string' ||
+    value instanceof Uint8Array
+  );
+}
+
+// Checks every parameter at the driver boundary. node:sqlite would
+// reject an unsupported value itself, but with a driver-internal
+// message; naming the offending index here keeps the failure
+// diagnosable. Throws TypeError — a caller bug, not an operational
+// condition — which the async wrappers surface as a rejected promise
+// like any other SQLite error.
+function toBindValues(params: unknown[]): BindValue[] {
+  return params.map((value, index) => {
+    if (isBindValue(value)) return value;
+    throw new TypeError(
+      `SQLite bind parameter ${index} has unsupported type ${value === undefined ? 'undefined' : typeof value}`
+    );
+  });
+}
+
 export interface ManagedSqliteClient extends SqliteClient {
   /** Closes the underlying connection. Further calls reject. */
   close(): void;
@@ -39,20 +64,18 @@ export function createSqliteClient(dbPath: string): ManagedSqliteClient {
 
   return {
     async run(sql: string, params: unknown[]): Promise<void> {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): node:sqlite driver boundary, untyped rows/params
-      db.prepare(sql).run(...(params as BindValue[]));
+      db.prepare(sql).run(...toBindValues(params));
     },
 
     async get<T>(sql: string, params: unknown[]): Promise<T | undefined> {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): node:sqlite driver boundary, untyped rows/params
-      const row = db.prepare(sql).get(...(params as BindValue[]));
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): node:sqlite driver boundary, untyped rows/params
+      const row = db.prepare(sql).get(...toBindValues(params));
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: SqliteClient.get<T> is the driver boundary; T is the caller's declared row shape and cannot be validated generically here (callers own row typing per the interface contract)
       return row === undefined ? undefined : (row as T);
     },
 
     async all<T>(sql: string, params: unknown[]): Promise<T[]> {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): node:sqlite driver boundary, untyped rows/params
-      return db.prepare(sql).all(...(params as BindValue[])) as T[];
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: SqliteClient.all<T> is the driver boundary; T is the caller's declared row shape and cannot be validated generically here (callers own row typing per the interface contract)
+      return db.prepare(sql).all(...toBindValues(params)) as T[];
     },
 
     close(): void {

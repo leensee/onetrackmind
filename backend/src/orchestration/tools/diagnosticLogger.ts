@@ -3,6 +3,9 @@
 // Writes diagnostic events to diagnostic_log — a dedicated table
 // separate from session_log. Self-contained, write-only.
 // DB client is injected — never constructed here.
+// Logger is injected (trailing parameter) — console-backed
+// default. Orthogonal to the rows this module writes: the
+// Logger carries this module's own field observability.
 // All queries parameterized — no string interpolation.
 //
 // Categories are plain strings — new categories addable as data,
@@ -21,6 +24,8 @@ import {
   DiagnosticLogInput,
   DiagnosticPurgeResult,
 } from '../types';
+import { errorMessage } from '../typeUtils';
+import { Logger, createConsoleLogger } from '../../observability/logger';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -34,6 +39,8 @@ const IS_NOT_SYNCED = 0;
 // Valid severity values — used by validateInput.
 // Must stay in sync with DiagnosticSeverity type in types.ts.
 const VALID_SEVERITIES: DiagnosticSeverity[] = ['info', 'warning', 'critical'];
+
+const defaultLogger: Logger = createConsoleLogger('DiagnosticLogger');
 
 // ── Narrow DB Interface ───────────────────────────────────────
 // run: writes. get: count queries for purge.
@@ -92,18 +99,14 @@ export function validateInput(input: DiagnosticLogInput): string | null {
 // Catches JSON.stringify failure — logs warn and returns null.
 // Never throws.
 export function serializeMetadata(
-  metadata: Record<string, unknown> | undefined
+  metadata: Record<string, unknown> | undefined,
+  logger:   Logger = defaultLogger
 ): string | null {
   if (!metadata || Object.keys(metadata).length === 0) return null;
   try {
     return JSON.stringify(metadata);
   } catch (err) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      `[DiagnosticLogger] metadata serialization failed — omitting: ` +
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `${(err as Error).message}`
-    );
+    logger.warn('metadata serialization failed — omitting', { detail: errorMessage(err) });
     return null;
   }
 }
@@ -115,8 +118,9 @@ export function serializeMetadata(
 // Returns null on success; DiagnosticLogError on any failure.
 // Never throws.
 export async function logDiagnosticEntry(
-  input: DiagnosticLogInput,
-  db:    DiagnosticLogDbClient
+  input:  DiagnosticLogInput,
+  db:     DiagnosticLogDbClient,
+  logger: Logger = defaultLogger
 ): Promise<DiagnosticLogResult> {
   const validationError = validateInput(input);
   if (validationError) {
@@ -130,7 +134,7 @@ export async function logDiagnosticEntry(
 
   const entryId      = randomUUID();
   const timestamp    = new Date().toISOString();
-  const metadataJson = serializeMetadata(input.metadata);
+  const metadataJson = serializeMetadata(input.metadata, logger);
 
   try {
     await db.run(
@@ -152,18 +156,18 @@ export async function logDiagnosticEntry(
       ]
     );
 
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(
-      `[DiagnosticLogger] entry written entryId=${entryId} ` +
-      `category=${input.category} severity=${input.severity} ` +
-      `machineId=${input.machineId ?? 'null'} sessionId=${input.sessionId}`
-    );
+    logger.info('entry written', {
+      entryId,
+      category:  input.category,
+      severity:  input.severity,
+      machineId: input.machineId,
+      sessionId: input.sessionId,
+    });
 
     return null;
   } catch (err) {
     return new DiagnosticLogError(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `Write failed: ${(err as Error).message}`,
+      `Write failed: ${errorMessage(err)}`,
       input.sessionId,
       input.requestId,
       'write_error'
@@ -179,15 +183,15 @@ export async function logDiagnosticEntry(
 export async function purgeOldDiagnostics(
   userId:        string,
   retentionDays: number,
-  db:            DiagnosticLogDbClient
+  db:            DiagnosticLogDbClient,
+  logger:        Logger = defaultLogger
 ): Promise<DiagnosticPurgeResult> {
   const clampedDays = Math.min(retentionDays, DIAGNOSTIC_MAX_RETENTION_DAYS);
   if (clampedDays !== retentionDays) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      `[DiagnosticLogger] retentionDays=${retentionDays} exceeds max ` +
-      `${DIAGNOSTIC_MAX_RETENTION_DAYS} — clamped`
-    );
+    logger.warn('retentionDays exceeds max — clamped', {
+      retentionDays,
+      max: DIAGNOSTIC_MAX_RETENTION_DAYS,
+    });
   }
 
   const cutoff = new Date(
@@ -208,20 +212,11 @@ export async function purgeOldDiagnostics(
       [userId, cutoff]
     );
 
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(
-      `[DiagnosticLogger] purge complete userId=${userId} ` +
-      `entriesDeleted=${entriesDeleted} purgedBefore=${cutoff}`
-    );
+    logger.info('purge complete', { userId, entriesDeleted, purgedBefore: cutoff });
 
     return { entriesDeleted, purgedBefore: cutoff };
   } catch (err) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.error(
-      `[DiagnosticLogger] purge failed userId=${userId}: ` +
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `${(err as Error).message}`
-    );
+    logger.error('purge failed', { userId, detail: errorMessage(err) });
     return { entriesDeleted: 0, purgedBefore: cutoff };
   }
 }

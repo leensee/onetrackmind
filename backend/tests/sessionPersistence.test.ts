@@ -12,10 +12,27 @@ import {
   closeSession,
   purgeExpiredLogs,
   openSession,
+  parseCachedState,
   SessionPersistenceError,
   CURRENT_SCHEMA_VERSION,
 } from '../src/orchestration/sessionPersistence';
 import { SessionState, SessionLogEntry, SqliteClient } from '../src/orchestration/types';
+import { Logger, LogFields, noopLogger } from '../src/observability/logger';
+
+// ── Capturing Logger ──────────────────────────────────────────
+// Injected through the Logger seam — no console monkey-patching.
+
+type Captured = { level: 'info' | 'warn' | 'error'; message: string; fields: LogFields | undefined };
+
+function capturingLogger(): { logger: Logger; lines: Captured[] } {
+  const lines: Captured[] = [];
+  const logger: Logger = {
+    info:  (message, fields) => { lines.push({ level: 'info',  message, fields }); },
+    warn:  (message, fields) => { lines.push({ level: 'warn',  message, fields }); },
+    error: (message, fields) => { lines.push({ level: 'error', message, fields }); },
+  };
+  return { logger, lines };
+}
 
 // ── Mock SqliteClient ─────────────────────────────────────────
 
@@ -561,6 +578,129 @@ async function runTests(): Promise<void> {
     const result = await updateStateObject(BASE_STATE, db);
     assert(result !== null, 'must return error on failure');
     assert(result!.cause === 'write_error', `cause must be write_error, got ${result!.cause}`);
+  });
+
+  // ── parseCachedState — validated cache, no cast (otm#85) ──
+
+  const RICH_STATE: SessionState = {
+    ...BASE_STATE,
+    conversationHistory: [
+      { role: 'user',      content: 'pos 13 filter?', timestamp: '2026-04-11T08:00:30.000Z' },
+      { role: 'assistant', content: 'Donaldson P551313.' },
+    ],
+    activeFlags: [
+      { flagId: 'f1', type: 'safety', content: 'leak on pos 13', raisedAt: '2026-04-11T08:00:40.000Z', acknowledged: false },
+    ],
+    openItems: [
+      { itemId: 'i1', category: 'machine', content: 'pos 13 filter swap', priority: 2, isPush: true },
+    ],
+    consistContext: {
+      consistId: 'c1',
+      relevantMachines: [
+        { position: 13, name: 'Tamper', serialNumber: 'SN-13' },
+        { position: 2,  name: 'Regulator' },
+      ],
+    },
+  };
+
+  test('parseCachedState: round-trips a full SessionState written by updateStateObject', () => {
+    const parsed = parseCachedState(JSON.stringify(RICH_STATE));
+    assert(parsed !== undefined, 'must parse a state this module wrote');
+    assert(JSON.stringify(parsed) === JSON.stringify(RICH_STATE), 'must round-trip structurally');
+  });
+
+  test('parseCachedState: rejects non-JSON, arrays, and primitives', () => {
+    for (const text of ['{', '[]', '"x"', '42', 'null', 'true']) {
+      assert(parseCachedState(text) === undefined, `${text} must be rejected`);
+    }
+  });
+
+  test('parseCachedState: rejects a missing top-level field', () => {
+    const { userId: _dropped, ...withoutUserId } = RICH_STATE;
+    assert(parseCachedState(JSON.stringify(withoutUserId)) === undefined, 'missing userId must reject');
+    const { consistContext: _dropped2, ...withoutConsist } = RICH_STATE;
+    assert(parseCachedState(JSON.stringify(withoutConsist)) === undefined, 'missing consistContext must reject');
+  });
+
+  test('parseCachedState: accepts null consistContext', () => {
+    const parsed = parseCachedState(JSON.stringify({ ...RICH_STATE, consistContext: null }));
+    assert(parsed !== undefined && parsed.consistContext === null, 'null consistContext is valid');
+  });
+
+  test('parseCachedState: rejects nested items of the wrong shape', () => {
+    const badFlag = { ...RICH_STATE, activeFlags: [{ ...RICH_STATE.activeFlags[0], type: 'bogus' }] };
+    assert(parseCachedState(JSON.stringify(badFlag)) === undefined, 'invalid flag type must reject');
+    const badMachine = {
+      ...RICH_STATE,
+      consistContext: { consistId: 'c1', relevantMachines: [{ position: 'thirteen', name: 'Tamper' }] },
+    };
+    assert(parseCachedState(JSON.stringify(badMachine)) === undefined, 'non-numeric position must reject');
+    const badMessage = { ...RICH_STATE, conversationHistory: [{ role: 'system', content: 'x' }] };
+    assert(parseCachedState(JSON.stringify(badMessage)) === undefined, 'unknown message role must reject');
+  });
+
+  // ── openSession — cache validation drives the replay decision ─
+
+  await test('openSession: valid cache row is used without replay', async () => {
+    let allCalls = 0;
+    const db: SqliteClient = {
+      async run() { /* no-op */ },
+      async get<T>(): Promise<T | undefined> {
+        return { state_json: JSON.stringify({ ...RICH_STATE, isFromLogReplay: true }) } as unknown as T;
+      },
+      async all<T>(): Promise<T[]> { allCalls++; return [] as T[]; },
+    };
+    const { state } = await openSession(SESSION_ID, USER_ID, EDITION_ID, 90, db, noopLogger);
+    assert(state.isFromLogReplay === false, 'cache hit must clear isFromLogReplay');
+    assert(state.activeFlags.length === 1 && state.activeFlags[0]?.flagId === 'f1', 'cached flags must survive');
+    assert(allCalls === 0, 'replay must not run on a valid cache hit');
+  });
+
+  await test('openSession: cache row failing validation falls back to replay and warns', async () => {
+    const entries: SessionLogEntry[] = [
+      makeLogEntry('session_open', {
+        sessionId: SESSION_ID, userId: USER_ID,
+        editionId: EDITION_ID, openedAt: '2026-04-11T08:00:00.000Z',
+      }, { entryId: 'e1', timestamp: '2026-04-11T08:00:00.000Z' }),
+    ];
+    const { logger, lines } = capturingLogger();
+    const db: SqliteClient = {
+      async run() { /* no-op */ },
+      async get<T>(): Promise<T | undefined> {
+        // Well-formed JSON, wrong shape: a hand-edited or future-schema row.
+        return { state_json: '{"sessionId":"session-001","userId":"user-001"}' } as unknown as T;
+      },
+      async all<T>(): Promise<T[]> { return entries as unknown as T[]; },
+    };
+    const { state } = await openSession(SESSION_ID, USER_ID, EDITION_ID, 90, db, logger);
+    assert(state.isFromLogReplay === true, 'must replay when the cache row fails validation');
+    assert(state.editionId === EDITION_ID, 'replayed state must come from the log');
+    assert(
+      lines.some(l => l.level === 'warn' && l.message.includes('failed validation')),
+      'must warn about the rejected cache row through the injected logger'
+    );
+  });
+
+  // ── writeLogEntry — payload shape is validated, never cast ──
+
+  await test('writeLogEntry: non-object JSON payload returns invalid_payload', async () => {
+    const db = makeMockDb();
+    const result = await writeLogEntry(
+      { sessionId: SESSION_ID, userId: USER_ID, entryType: 'flag_acknowledged', payload: '42' },
+      db
+    );
+    assert(result !== null && result.cause === 'invalid_payload', 'primitive payload must be invalid_payload');
+    assert(result!.message.includes('must be a JSON object'), 'message must name the shape problem');
+  });
+
+  await test('writeLogEntry: malformed JSON payload returns invalid_payload instead of throwing', async () => {
+    const db = makeMockDb();
+    const result = await writeLogEntry(
+      { sessionId: SESSION_ID, userId: USER_ID, entryType: 'flag_acknowledged', payload: '{' },
+      db
+    );
+    assert(result !== null && result.cause === 'invalid_payload', 'unparseable payload must be invalid_payload');
+    assert(result!.message.includes('unparseable payload'), 'message must say the payload was unparseable');
   });
 
   // ── Results ───────────────────────────────────────────────

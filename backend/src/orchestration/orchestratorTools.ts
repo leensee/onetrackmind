@@ -3,14 +3,17 @@
 // Connects Phase 2 orchestration to Phase 3 tools.
 // Owns the draft → approval gate → write flow.
 // All tool clients injected via ToolDeps — never constructed here.
+// ToolDeps.logger (optional) is threaded into every tool call
+// that logs; absent, each tool uses its console-backed default.
 // Exhaustive switch — no fall-through, no arbitrary decisions.
 // ============================================================
 
 import {
   ToolCallInput,
   ToolCallStatus,
-  DiagnosticLogInput,
 } from './types';
+import { errorMessage } from './typeUtils';
+import { Logger } from '../observability/logger';
 
 // Tool layer imports
 import { buildTodoDraft, writeTodo, updateTodoStatus, TodoWriteDbClient } from './tools/todoTool';
@@ -49,6 +52,7 @@ export interface ToolDeps {
   emitter:     DecisionEmitter;
   extractor?:  ImageExtractorClient;
   timeoutMs?:  number;
+  logger?:     Logger;
 }
 
 // ── Approval Gate Helper ──────────────────────────────────────
@@ -77,32 +81,32 @@ export async function dispatchToolCall(
   deps: ToolDeps
 ): Promise<ToolCallStatus> {
   const tool = call.tool;
+  const logger = deps.logger;
 
   switch (tool) {
     // ── todo_create: draft → gate → write ──────────────────
     case 'todo_create': {
-      const draftResult = buildTodoDraft(call.input);
+      const draftResult = buildTodoDraft(call.input, logger);
       if (!draftResult.ok) {
         return { status: 'error', tool, error: draftResult.error };
       }
       const { draft } = draftResult;
       const gate = await runGate(
         draft.requestId, formatDraftForApproval(draft), tool, deps
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      ).catch(err => ({ gateErr: (err as Error).message }));
+      ).catch(err => ({ gateErr: errorMessage(err) }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
       if (gate === 'rejected') return { status: 'rejected', tool };
       if (gate === 'timeout')  return { status: 'timeout',  tool };
 
-      const writeResult = await writeTodo(draft, deps.db);
+      const writeResult = await writeTodo(draft, deps.db, logger);
       if (writeResult) return { status: 'error', tool, error: writeResult.message };
       return { status: 'approved', tool, result: draft };
     }
 
     // ── todo_update: direct write, no gate (user-directed) ─
     case 'todo_update': {
-      const writeResult = await updateTodoStatus(call.input, deps.db);
+      const writeResult = await updateTodoStatus(call.input, deps.db, logger);
       if (writeResult) return { status: 'error', tool, error: writeResult.message };
       return { status: 'direct_write', tool, result: call.input };
     }
@@ -114,8 +118,7 @@ export async function dispatchToolCall(
       const { draft } = draftResult;
       const gate = await runGate(
         call.input.requestId, formatDraftForApproval(draft), tool, deps
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      ).catch(err => ({ gateErr: (err as Error).message }));
+      ).catch(err => ({ gateErr: errorMessage(err) }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
       if (gate === 'rejected') return { status: 'rejected', tool };
@@ -144,21 +147,20 @@ export async function dispatchToolCall(
       const { order, document } = genResult;
       const gate = await runGate(
         call.input.requestId, formatDraftForApproval(document), tool, deps
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      ).catch(err => ({ gateErr: (err as Error).message }));
+      ).catch(err => ({ gateErr: errorMessage(err) }));
 
       if (typeof gate === 'object') return { status: 'error', tool, error: gate.gateErr };
       if (gate === 'rejected') return { status: 'rejected', tool };
       if (gate === 'timeout')  return { status: 'timeout',  tool };
 
-      const writeResult = await writePurchaseOrder(order, call.input.requestId, deps.db);
+      const writeResult = await writePurchaseOrder(order, call.input.requestId, deps.db, logger);
       if (writeResult) return { status: 'error', tool, error: writeResult.message };
       return { status: 'approved', tool, result: { order, document } };
     }
 
     // ── spec_lookup: read-only, no gate ────────────────────
     case 'spec_lookup': {
-      const result = await specLookup(call.input, deps.db);
+      const result = await specLookup(call.input, deps.db, logger);
       if (result.status === 'error') return { status: 'error', tool, error: result.message };
       return { status: 'read_result', tool, result };
     }
@@ -179,22 +181,25 @@ export async function dispatchToolCall(
 
     // ── log_diagnostic: system-initiated direct write ──────
     case 'log_diagnostic': {
-      const writeResult = await logDiagnosticEntry(
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-        call.input as DiagnosticLogInput, deps.db
-      );
+      // The discriminated union already narrows call.input to DiagnosticLogInput here.
+      const writeResult = await logDiagnosticEntry(call.input, deps.db, logger);
       if (writeResult) return { status: 'error', tool, error: writeResult.message };
       return { status: 'direct_write', tool, result: null };
     }
 
     default: {
       const exhaustiveCheck: never = call;
+      // `never` widens to unknown by assignment; `in` narrows for the diagnostic read.
+      const unknownCall: unknown = exhaustiveCheck;
+      const toolName = String(
+        typeof unknownCall === 'object' && unknownCall !== null && 'tool' in unknownCall
+          ? unknownCall.tool
+          : undefined
+      );
       return {
         status: 'error',
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- never-branch diagnostic formatting on the exhaustive switch (otm#85)
-        tool:   String((exhaustiveCheck as { tool: string }).tool),
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- never-branch diagnostic formatting on the exhaustive switch (otm#85)
-        error:  `Unrecognized tool: ${String((exhaustiveCheck as { tool: string }).tool)}`,
+        tool:   toolName,
+        error:  `Unrecognized tool: ${toolName}`,
       };
     }
   }

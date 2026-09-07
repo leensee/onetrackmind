@@ -86,8 +86,13 @@ export const DEVICE_WRITABLE_COLUMNS: Record<DeviceTable, string[]> = {
   device_contacts: [],
 };
 
+/** Type predicate: is this table one of the device mirrors? Keyed off DEVICE_MIRRORS itself, so the two can never drift. */
+export function isDeviceTable(table: TableName): table is DeviceTable {
+  return Object.hasOwn(DEVICE_MIRRORS, table);
+}
+
 /** Resolve a device mirror to the backend table whose shape/constraints it inherits. */
 export function mirrorBase(table: TableName): BackendTable {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): const lookup-table widening for mirror mapping
-  return (DEVICE_MIRRORS as Record<string, BackendTable>)[table] ?? (table as BackendTable);
+  // In the else branch TypeScript has narrowed `table` to Exclude<TableName, DeviceTable> = BackendTable.
+  return isDeviceTable(table) ? DEVICE_MIRRORS[table] : table;
 }

@@ -5,11 +5,14 @@
 // the user via WebSocket, receives decisions, routes accordingly.
 // Also handles regen limit surface and feedback submission.
 // WebSocket connection owned by Fastify layer — not here.
-// Owns real side effects: fetch, wsSend, console.*.
+// Owns real side effects: fetch, wsSend, and observability via
+// the injected Logger (options.logger; console-backed default).
 // Paired with ./pure.ts which owns deterministic logic.
 // ============================================================
 
 import { FeedbackPayload } from '../types';
+import { errorMessage } from '../typeUtils';
+import { Logger, createConsoleLogger } from '../../observability/logger';
 import {
   APPROVAL_TIMEOUT_MS,
   ApprovalDecision,
@@ -24,6 +27,8 @@ import {
 // Public surface preserved for consumers importing from './approvalGate'.
 export * from './pure';
 
+const defaultLogger: Logger = createConsoleLogger('ApprovalGate');
+
 // ── Send Helpers ──────────────────────────────────────────────
 
 export function sendApprovalRequest(
@@ -35,8 +40,7 @@ export function sendApprovalRequest(
     wsSend(buildApprovalMessage(requestId, content));
   } catch (err) {
     throw new ApprovalGateError(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `Failed to send approval request: ${(err as Error).message}`,
+      `Failed to send approval request: ${errorMessage(err)}`,
       requestId,
       'send_error'
     );
@@ -53,8 +57,7 @@ export function sendRegenLimitMessage(
     wsSend(buildRegenLimitMessage(requestId, draft, auditFlag));
   } catch (err) {
     throw new ApprovalGateError(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `Failed to send regen limit message: ${(err as Error).message}`,
+      `Failed to send regen limit message: ${errorMessage(err)}`,
       requestId,
       'send_error'
     );
@@ -72,6 +75,7 @@ export function sendRegenLimitMessage(
 // options.fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
 // know which email provider is in use. Receives the full FeedbackPayload
 // so the caller doesn't have to reconstruct or re-serialize it.
+// options.logger: observability sink; tests inject a capturing Logger.
 // Callers that only use email fallback (no token, no GitHub) need not
 // supply options.github at all.
 
@@ -81,6 +85,19 @@ export interface FeedbackSubmitOptions {
     titleFormat: string;
   };
   fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>;
+  logger?: Logger;
+}
+
+// Metadata-only view of a payload for failure logs: never the content.
+function payloadMetadata(payload: FeedbackPayload): Record<string, unknown> {
+  return {
+    sessionId:    payload.sessionId,
+    timestamp:    payload.timestamp,
+    eventType:    payload.eventType,
+    userAction:   payload.userAction,
+    attempts:     payload.attempts.length,
+    manualRegens: payload.manualRegens.length,
+  };
 }
 
 export async function submitFeedback(
@@ -89,41 +106,28 @@ export async function submitFeedback(
   options: FeedbackSubmitOptions
 ): Promise<void> {
   const { github, fallbackEmailFn } = options;
+  const logger = options.logger ?? defaultLogger;
 
   // No token — skip GitHub entirely, route directly to fallback.
   // Orchestrator passes env.githubFeedbackToken here; undefined is valid
   // pre-Phase 4 and the gate owns this path — no orchestrator decision needed.
   if (!token) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      `[ApprovalGate] GITHUB_FEEDBACK_TOKEN not configured — attempting email fallback ` +
-      `sessionId=${payload.sessionId}`
-    );
+    logger.warn('GITHUB_FEEDBACK_TOKEN not configured — attempting email fallback', {
+      sessionId: payload.sessionId,
+    });
     if (fallbackEmailFn) {
       try {
         await fallbackEmailFn(payload);
-        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-        console.info(
-          `[ApprovalGate] feedback submitted via email fallback (no token) ` +
-          `sessionId=${payload.sessionId}`
-        );
+        logger.info('feedback submitted via email fallback (no token)', {
+          sessionId: payload.sessionId,
+        });
         return;
       } catch (emailErr) {
-        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-        console.error(
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-          `[ApprovalGate] email fallback failed (no token): ${(emailErr as Error).message}`
-        );
+        logger.error('email fallback failed (no token)', { detail: errorMessage(emailErr) });
       }
     }
     // No token and no fallback, or fallback failed — log metadata only, throw.
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.error(
-      `[ApprovalGate] no feedback channels available — logging metadata: ` +
-      `sessionId=${payload.sessionId} timestamp=${payload.timestamp} ` +
-      `eventType=${payload.eventType} userAction=${payload.userAction} ` +
-      `attempts=${payload.attempts.length} manualRegens=${payload.manualRegens.length}`
-    );
+    logger.error('no feedback channels available — logging metadata', payloadMetadata(payload));
     throw new ApprovalGateError(
       'Feedback submission failed — GITHUB_FEEDBACK_TOKEN not configured and no fallback available',
       payload.sessionId,
@@ -172,43 +176,26 @@ export async function submitFeedback(
     }
 
     githubSucceeded = true;
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(
-      `[ApprovalGate] feedback submitted to GitHub sessionId=${payload.sessionId}`
-    );
+    logger.info('feedback submitted to GitHub', { sessionId: payload.sessionId });
   } catch (githubErr) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.error(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `[ApprovalGate] GitHub feedback submission failed: ${(githubErr as Error).message}`
-    );
+    logger.error('GitHub feedback submission failed', { detail: errorMessage(githubErr) });
 
     if (fallbackEmailFn) {
       try {
         await fallbackEmailFn(payload);
-        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-        console.info(
-          `[ApprovalGate] feedback submitted via email fallback sessionId=${payload.sessionId}`
-        );
+        logger.info('feedback submitted via email fallback', { sessionId: payload.sessionId });
         return;
       } catch (emailErr) {
-        // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-        console.error(
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-          `[ApprovalGate] email fallback also failed: ${(emailErr as Error).message}`
-        );
+        logger.error('email fallback also failed', { detail: errorMessage(emailErr) });
       }
     }
 
     if (!githubSucceeded) {
       // Both paths failed — log metadata only for tracing; full payload not logged
       // to avoid operational content in error logs. Content is unrecoverable at this point.
-      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-      console.error(
-        `[ApprovalGate] all feedback channels failed — logging metadata for tracing: ` +
-        `sessionId=${payload.sessionId} timestamp=${payload.timestamp} ` +
-        `eventType=${payload.eventType} userAction=${payload.userAction} ` +
-        `attempts=${payload.attempts.length} manualRegens=${payload.manualRegens.length}`
+      logger.error(
+        'all feedback channels failed — logging metadata for tracing',
+        payloadMetadata(payload)
       );
 
       throw new ApprovalGateError(

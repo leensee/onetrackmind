@@ -6,6 +6,7 @@
 // orchestrator branches on deterministically.
 // Non-streaming — response is small JSON (max 500 tokens).
 // Anthropic client is injected — never constructed here.
+// Logger is injected (trailing parameter) — console-backed default.
 // ============================================================
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -24,6 +25,8 @@ import {
   formatConsistContext,
 } from './formatters';
 import { loadStringExport } from './configLoader';
+import { toRecord, errorMessage } from './typeUtils';
+import { Logger, createConsoleLogger } from '../observability/logger';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -31,6 +34,8 @@ export const MODEL_AUDIT_MODEL       = 'claude-sonnet-4-6';
 export const MODEL_AUDIT_MAX_TOKENS  = 500;
 export const MODEL_AUDIT_TEMPERATURE = 0;    // compliance check — deterministic
 export const MODEL_AUDIT_TIMEOUT_MS  = 30_000;
+
+const defaultLogger: Logger = createConsoleLogger('ModelAudit');
 
 // ── Model Audit Error ─────────────────────────────────────────
 
@@ -141,12 +146,11 @@ export function parseAuditResponse(raw: string): ModelAuditResult {
     throw new Error(`Invalid JSON in audit response: "${cleaned.substring(0, 120)}"`);
   }
 
-  if (typeof parsed !== 'object' || parsed === null) {
+  const obj = toRecord(parsed);
+  if (obj === undefined) {
     throw new Error('Audit response is not a JSON object');
   }
 
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-  const obj = parsed as Record<string, unknown>;
   const validResults: AuditResult[] = ['pass', 'flag', 'revise'];
 
   const result = validResults.find(v => v === obj['result']);
@@ -190,15 +194,13 @@ export async function runModelAudit(
   input:                ModelAuditInput,
   client:               Anthropic,
   modelAuditPromptPath: string,
-  timeoutMs:            number = MODEL_AUDIT_TIMEOUT_MS
+  timeoutMs:            number = MODEL_AUDIT_TIMEOUT_MS,
+  logger:               Logger = defaultLogger
 ): Promise<ModelAuditResult> {
   const { sessionId, requestId } = input;
   const startMs = Date.now();
 
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[ModelAudit] start requestId=${requestId} sessionId=${sessionId} model=${MODEL_AUDIT_MODEL}`
-  );
+  logger.info('start', { requestId, sessionId, model: MODEL_AUDIT_MODEL });
 
   const userPrompt  = buildAuditPrompt(input);
 
@@ -206,15 +208,15 @@ export async function runModelAudit(
   try {
     auditPrompt = loadStringExport(modelAuditPromptPath, 'MODEL_AUDIT_PROMPT');
   } catch (configErr) {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-    const error = configErr as Error;
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.error(
-      `[ModelAudit] error requestId=${requestId} sessionId=${sessionId} ` +
-      `cause=config_error message=${sanitizeErrorMessage(error.message)}`
-    );
+    const message = errorMessage(configErr);
+    logger.error('error', {
+      requestId,
+      sessionId,
+      cause:   'config_error',
+      message: sanitizeErrorMessage(message),
+    });
     throw new ModelAuditError(
-      `Config error: ${error.message}`,
+      `Config error: ${message}`,
       sessionId,
       requestId,
       'config_error'
@@ -266,8 +268,7 @@ export async function runModelAudit(
       auditResult = parseAuditResponse(textBlock.text);
     } catch (parseErr) {
       throw new ModelAuditError(
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-        (parseErr as Error).message,
+        errorMessage(parseErr),
         sessionId,
         requestId,
         'invalid_json'
@@ -275,11 +276,7 @@ export async function runModelAudit(
     }
 
     const durationMs = Date.now() - startMs;
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(
-      `[ModelAudit] complete requestId=${requestId} sessionId=${sessionId} ` +
-      `result=${auditResult.result} durationMs=${durationMs}`
-    );
+    logger.info('complete', { requestId, sessionId, result: auditResult.result, durationMs });
 
     return auditResult;
 
@@ -290,16 +287,16 @@ export async function runModelAudit(
 
     if (err instanceof ModelAuditError) throw err;
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-    const error = err as Error;
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.error(
-      `[ModelAudit] error requestId=${requestId} sessionId=${sessionId} ` +
-      `cause=api_error message=${sanitizeErrorMessage(error.message)}`
-    );
+    const message = errorMessage(err);
+    logger.error('error', {
+      requestId,
+      sessionId,
+      cause:   'api_error',
+      message: sanitizeErrorMessage(message),
+    });
 
     throw new ModelAuditError(
-      `API error: ${error.message}`,
+      `API error: ${message}`,
       sessionId,
       requestId,
       'api_error'

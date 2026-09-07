@@ -3,6 +3,7 @@
 // CJS module (commonjs) — no import.meta.url, no .js extensions.
 // Edition-agnostic. All edition-specific behavior injected
 // via AssemblerInput. No OTM v1 assumptions hardcoded here.
+// Logger is injected (trailing parameter) — console-backed default.
 // ============================================================
 
 import {
@@ -18,10 +19,13 @@ import {
   formatConsistContext,
 } from './formatters';
 import { loadStringExport } from './configLoader';
+import { Logger, createConsoleLogger } from '../observability/logger';
 
 const DEFAULT_TOTAL_TOKENS       = 200_000;
 const DEFAULT_RESPONSE_RESERVE   = 4_000;
 const DEFAULT_DYNAMIC_INJECT_CAP = 350;  // style profile + session context
+
+const defaultLogger: Logger = createConsoleLogger('PromptAssembler');
 
 // ── Style Profile Injection Block ────────────────────────────
 // Injected as a labeled block so the model treats it as a
@@ -84,7 +88,10 @@ function trimHistory(history: Message[], budgetTokens: number): TrimResult {
 
 // ── Main Assembler ───────────────────────────────────────────
 
-export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOutput> {
+export async function assemblePrompt(
+  input:  AssemblerInput,
+  logger: Logger = defaultLogger
+): Promise<AssemblerOutput> {
   const { editionConfig, styleProfile, conversationHistory, currentInput, contextualData } = input;
 
   // ── 1. Resolve token budget ────────────────────────────────
@@ -104,19 +111,15 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const dynamicTokens    = estimateTokens(dynamicInjection);
 
   // Unconditional metric — surfaces context loader drift over time.
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[PromptAssembler] Dynamic injection: ${dynamicTokens} tokens (cap: ${dynamicCap}).`
-  );
+  logger.info('dynamic injection', { tokens: dynamicTokens, cap: dynamicCap });
 
   // Warn if dynamic injection exceeds soft cap — non-fatal.
   // Surfaces for context loader tuning.
   if (dynamicTokens > dynamicCap) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      `[PromptAssembler] Dynamic injection ${dynamicTokens} tokens exceeds ` +
-      `soft cap ${dynamicCap}. Consider tightening context loader filtering.`
-    );
+    logger.warn('dynamic injection exceeds soft cap — consider tightening context loader filtering', {
+      tokens: dynamicTokens,
+      cap:    dynamicCap,
+    });
   }
 
   // ── 4. Assemble full system prompt ────────────────────────
@@ -132,10 +135,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   if (turnsTrimmed > 0) {
     // Orchestrator uses historyTrimmed + historyTurnsTrimmed to write session log entry.
     // Assembler surfaces the signal — logging is the orchestrator's responsibility.
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.warn(
-      `[PromptAssembler] Trimmed ${turnsTrimmed} conversation turn(s) to fit context window.`
-    );
+    logger.warn('trimmed conversation turn(s) to fit context window', { turnsTrimmed });
   }
 
   // ── 6. Build messages array ───────────────────────────────

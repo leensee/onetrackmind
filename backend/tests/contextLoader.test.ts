@@ -22,6 +22,22 @@ import {
   OpenItem,
   ContextLoaderInput,
 } from '../src/orchestration/types';
+import { Logger, LogFields, noopLogger } from '../src/observability/logger';
+
+// ── Capturing Logger ──────────────────────────────────────────
+// Injected through the Logger seam — no console monkey-patching.
+
+type Captured = { level: 'info' | 'warn' | 'error'; message: string; fields: LogFields | undefined };
+
+function capturingLogger(): { logger: Logger; lines: Captured[] } {
+  const lines: Captured[] = [];
+  const logger: Logger = {
+    info:  (message, fields) => { lines.push({ level: 'info',  message, fields }); },
+    warn:  (message, fields) => { lines.push({ level: 'warn',  message, fields }); },
+    error: (message, fields) => { lines.push({ level: 'error', message, fields }); },
+  };
+  return { logger, lines };
+}
 
 // ── Mock Supabase Client ──────────────────────────────────────
 // Option A: typed partial mock satisfying the from().select().eq()
@@ -352,78 +368,97 @@ async function runTests(): Promise<void> {
   });
 
   await test('fetchUserSettings warns and skips unknown setting keys (D4)', async () => {
-    const originalWarn = console.warn;
-    const warnings: string[] = [];
-    console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
-    try {
-      const db = makeMockDb({
-        userSettings: {
-          data: [
-            { setting_key: 'unknownFutureKey', setting_value: 'whatever' },
-            { setting_key: 'digestThresholdHours', setting_value: '7' },
-          ],
-          error: null,
-        },
-      });
-      const result = await fetchUserSettings('user-001', 'otm-v1-mechanic', db);
-      assert(result.digestThresholdHours === 7, 'known key must still be applied');
-      assert(
-        warnings.some(w => w.includes('unknownFutureKey')),
-        'must warn about unknown key'
-      );
-    } finally {
-      console.warn = originalWarn;
-    }
+    const { logger, lines } = capturingLogger();
+    const db = makeMockDb({
+      userSettings: {
+        data: [
+          { setting_key: 'unknownFutureKey', setting_value: 'whatever' },
+          { setting_key: 'digestThresholdHours', setting_value: '7' },
+        ],
+        error: null,
+      },
+    });
+    const result = await fetchUserSettings('user-001', 'otm-v1-mechanic', db, logger);
+    assert(result.digestThresholdHours === 7, 'known key must still be applied');
+    assert(
+      lines.some(l => l.level === 'warn' && l.fields?.['key'] === 'unknownFutureKey'),
+      'must warn about unknown key through the injected logger'
+    );
   });
 
   // ── 7b. fetchUserSettings — prototype-pollution keys rejected ─
   await test('fetchUserSettings skips prototype-pollution keys without polluting Object prototype', async () => {
-    const originalWarn = console.warn;
-    const warnings: string[] = [];
-    console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
+    const { logger, lines } = capturingLogger();
+    const db = makeMockDb({
+      userSettings: {
+        data: [
+          { setting_key: '__proto__',    setting_value: '{"injected":true}' },
+          { setting_key: 'constructor',  setting_value: 'polluted' },
+          { setting_key: 'toString',     setting_value: 'overwritten' },
+          { setting_key: 'digestThresholdHours', setting_value: '5' },
+        ],
+        error: null,
+      },
+    });
+    const result = await fetchUserSettings('user-001', 'otm-v1-mechanic', db, logger);
+
+    // Known key must still be applied — pollution keys must not abort processing.
+    assert(result.digestThresholdHours === 5, 'known key after pollution keys must still be applied');
+
+    // All three prototype-pollution keys must have triggered a warning.
+    const warnedKeys = lines.filter(l => l.level === 'warn').map(l => l.fields?.['key']);
+    assert(warnedKeys.includes('__proto__'),   'must warn about __proto__ key');
+    assert(warnedKeys.includes('constructor'), 'must warn about constructor key');
+    assert(warnedKeys.includes('toString'),    'must warn about toString key');
+
+    // Object prototype must not have been mutated.
+    assert(
+      (({} as Record<string, unknown>)['injected']) === undefined,
+      'Object prototype must not be polluted via __proto__ key'
+    );
+    assert(
+      typeof ({}).toString === 'function' && ({}).toString() === '[object Object]',
+      'Object prototype toString must remain the native function'
+    );
+  });
+
+  // ── 7c. Row shapes are validated, not cast (otm#85) ─────────
+  await test('fetchUserSettings rejects a row whose setting_value is not a string', async () => {
+    const db = makeMockDb({
+      userSettings: {
+        data: [{ setting_key: 'digestThresholdHours', setting_value: 7 as unknown as string }],
+        error: null,
+      },
+    });
+    let caught: unknown;
     try {
-      const db = makeMockDb({
-        userSettings: {
-          data: [
-            { setting_key: '__proto__',    setting_value: '{"injected":true}' },
-            { setting_key: 'constructor',  setting_value: 'polluted' },
-            { setting_key: 'toString',     setting_value: 'overwritten' },
-            { setting_key: 'digestThresholdHours', setting_value: '5' },
-          ],
-          error: null,
-        },
-      });
-      const result = await fetchUserSettings('user-001', 'otm-v1-mechanic', db);
-
-      // Known key must still be applied — pollution keys must not abort processing.
-      assert(result.digestThresholdHours === 5, 'known key after pollution keys must still be applied');
-
-      // All three prototype-pollution keys must have triggered a warning.
-      assert(
-        warnings.some(w => w.includes('__proto__')),
-        'must warn about __proto__ key'
-      );
-      assert(
-        warnings.some(w => w.includes('constructor')),
-        'must warn about constructor key'
-      );
-      assert(
-        warnings.some(w => w.includes('toString')),
-        'must warn about toString key'
-      );
-
-      // Object prototype must not have been mutated.
-      assert(
-        (({} as Record<string, unknown>)['injected']) === undefined,
-        'Object prototype must not be polluted via __proto__ key'
-      );
-      assert(
-        typeof ({}).toString === 'function' && ({}).toString() === '[object Object]',
-        'Object prototype toString must remain the native function'
-      );
-    } finally {
-      console.warn = originalWarn;
+      await fetchUserSettings('user-001', 'otm-v1-mechanic', db, noopLogger);
+    } catch (err) {
+      caught = err;
     }
+    assert(caught instanceof ContextLoaderError, 'must throw ContextLoaderError, not a TypeError');
+    assert(
+      (caught as ContextLoaderError).operation === 'fetchUserSettings' &&
+      (caught as Error).message.includes('Malformed user_settings row'),
+      'error must carry the operation and name the malformed row'
+    );
+  });
+
+  await test('fetchStyleProfile rejects a row without a string summary', async () => {
+    const db = makeMockDb({
+      styleProfile: { data: [{ summary: 123 as unknown as string }], error: null },
+    });
+    let caught: unknown;
+    try {
+      await fetchStyleProfile('user-001', db, noopLogger);
+    } catch (err) {
+      caught = err;
+    }
+    assert(caught instanceof ContextLoaderError, 'must throw ContextLoaderError, not a TypeError');
+    assert(
+      (caught as ContextLoaderError).operation === 'fetchStyleProfile',
+      'error must carry the fetchStyleProfile operation'
+    );
   });
 
   // ── 8. loadContext — parallel fetch, assembled output ──────

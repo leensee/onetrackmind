@@ -17,10 +17,14 @@ import {
   PoDocument,
   PoLineItem,
 } from '../types';
+import { errorMessage } from '../typeUtils';
+import { Logger, createConsoleLogger } from '../../observability/logger';
 
 // ── Constants ─────────────────────────────────────────────────
 
 const IS_NOT_SYNCED = 0; // Phase 7 sync layer sets to 1 after Supabase write
+
+const defaultLogger: Logger = createConsoleLogger('PoGenerator');
 
 // ── Narrow DB Interface ───────────────────────────────────────
 
@@ -175,7 +179,8 @@ export function buildPoGenerateResult(
 export async function writePurchaseOrder(
   order:     PurchaseOrder,
   requestId: string,
-  db:        PoWriteDbClient
+  db:        PoWriteDbClient,
+  logger:    Logger = defaultLogger
 ): Promise<PoWriteResult> {
   const entryId = randomUUID();
 
@@ -203,17 +208,16 @@ export async function writePurchaseOrder(
         IS_NOT_SYNCED,
       ]
     );
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(
-      `[PoGenerator] PO written poNumber=${order.poNumber} ` +
-      `vendor=${order.vendorName} subtotal=${order.subtotal} ` +
-      `sessionId=${order.sessionId}`
-    );
+    logger.info('PO written', {
+      poNumber:  order.poNumber,
+      vendor:    order.vendorName,
+      subtotal:  order.subtotal,
+      sessionId: order.sessionId,
+    });
     return null;
   } catch (err) {
     return new PoWriteError(
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      `Write failed: ${(err as Error).message}`,
+      `Write failed: ${errorMessage(err)}`,
       order.sessionId, requestId, 'write_error'
     );
   }

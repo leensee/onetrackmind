@@ -34,6 +34,7 @@
     "test:fixtures": "tsx --tsconfig tsconfig.test.json tests/fixturesMeta.test.ts",
     "test:migrations": "tsx --tsconfig tsconfig.test.json tests/migrationRunner.test.ts",
     "test:schema-live": "tsx --tsconfig tsconfig.test.json tests/schemaEnforcement.test.ts",
+    "test:sqlite": "tsx --tsconfig tsconfig.test.json tests/sqliteClient.test.ts",
     "test:dal-mapping": "tsx --tsconfig tsconfig.test.json tests/dalMapping.test.ts",
     "test:dal-constraints": "tsx --tsconfig tsconfig.test.json tests/dalConstraints.test.ts",
     "test:logger": "tsx --tsconfig tsconfig.test.json tests/logger.test.ts",

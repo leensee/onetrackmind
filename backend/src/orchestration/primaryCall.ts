@@ -4,10 +4,13 @@
 // full text before returning. No partial output leaves this
 // module — both audit layers run on the complete response.
 // Anthropic client is injected — never constructed here.
+// Logger is injected (trailing parameter) — console-backed default.
 // ============================================================
 
 import Anthropic from '@anthropic-ai/sdk';
 import { PrimaryCallInput, PrimaryCallOutput } from './types';
+import { errorMessage } from './typeUtils';
+import { Logger, createConsoleLogger } from '../observability/logger';
 
 // ── Constants ─────────────────────────────────────────────────
 // Named constants — single-line change points for Phase 8 tuning.
@@ -17,9 +20,13 @@ export const PRIMARY_CALL_MAX_TOKENS  = 4_000;
 export const PRIMARY_CALL_TEMPERATURE = 0.7;  // Phase 8 gate: test 0.5–1.0 for field calibration
 export const PRIMARY_CALL_TIMEOUT_MS  = 30_000;
 
+const defaultLogger: Logger = createConsoleLogger('PrimaryCall');
+
 // ── Stream Handle Interface ───────────────────────────────────
 // Structural interface for the SDK stream object.
-// Isolates this module from SDK internal type changes.
+// Isolates this module from SDK internal type changes. The SDK's
+// MessageStream satisfies it structurally, so no cast is needed
+// at the call site.
 
 interface StreamHandle {
   on(event: 'text', cb: (text: string) => void): this;
@@ -83,16 +90,18 @@ export function accumulateDeltas(deltas: string[]): string {
 export async function primaryCall(
   input:     PrimaryCallInput,
   client:    Anthropic,
-  timeoutMs: number = PRIMARY_CALL_TIMEOUT_MS
+  timeoutMs: number = PRIMARY_CALL_TIMEOUT_MS,
+  logger:    Logger = defaultLogger
 ): Promise<PrimaryCallOutput> {
   const { assemblerOutput, sessionId, requestId } = input;
   const startMs = Date.now();
 
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[PrimaryCall] start requestId=${requestId} sessionId=${sessionId} ` +
-    `model=${PRIMARY_CALL_MODEL} estimatedInputTokens=${assemblerOutput.tokenEstimate}`
-  );
+  logger.info('start', {
+    requestId,
+    sessionId,
+    model:                PRIMARY_CALL_MODEL,
+    estimatedInputTokens: assemblerOutput.tokenEstimate,
+  });
 
   // Stream handle declared outside try so the timeout closure can abort it
   let stream: StreamHandle | null = null;
@@ -112,7 +121,6 @@ export async function primaryCall(
   });
 
   try {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
     stream = client.messages.stream({
       model:       PRIMARY_CALL_MODEL,
       max_tokens:  PRIMARY_CALL_MAX_TOKENS,
@@ -122,7 +130,7 @@ export async function primaryCall(
         role:    m.role,
         content: m.content,
       })),
-    }) as unknown as StreamHandle;
+    });
 
     // Accumulate text deltas as they arrive
     const buffer: string[] = [];
@@ -156,12 +164,13 @@ export async function primaryCall(
 
     const durationMs = Date.now() - startMs;
 
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(
-      `[PrimaryCall] complete requestId=${requestId} sessionId=${sessionId} ` +
-      `durationMs=${durationMs} inputTokens=${finalMessage.usage.input_tokens} ` +
-      `outputTokens=${finalMessage.usage.output_tokens}`
-    );
+    logger.info('complete', {
+      requestId,
+      sessionId,
+      durationMs,
+      inputTokens:  finalMessage.usage.input_tokens,
+      outputTokens: finalMessage.usage.output_tokens,
+    });
 
     return {
       responseText,
@@ -179,16 +188,16 @@ export async function primaryCall(
     // Re-throw domain errors without wrapping
     if (err instanceof PrimaryCallError) throw err;
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-    const error = err as Error;
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.error(
-      `[PrimaryCall] error requestId=${requestId} sessionId=${sessionId} ` +
-      `cause=api_error message=${sanitizeErrorMessage(error.message)}`
-    );
+    const message = errorMessage(err);
+    logger.error('error', {
+      requestId,
+      sessionId,
+      cause:   'api_error',
+      message: sanitizeErrorMessage(message),
+    });
 
     throw new PrimaryCallError(
-      `API error: ${error.message}`,
+      `API error: ${message}`,
       sessionId,
       requestId,
       'api_error'

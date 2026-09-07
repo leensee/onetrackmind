@@ -1,10 +1,18 @@
 // ============================================================
 // OTM Orchestration — Type Utilities
 // Safe typed accessors for untrusted input (request bodies,
-// inbound payloads). Used across orchestration modules.
+// inbound payloads, JSON.parse output, caught errors). Used
+// across orchestration modules.
 // Never throws — returns undefined on missing or wrong-type.
 // Helpers: extractString, extractNumber, extractObject,
-//          extractArray, extractBoolean, extractOneOf<T>.
+//          extractArray, extractBoolean, extractOneOf<T>,
+//          toRecord, errorMessage.
+//
+// This module is the orchestration layer's narrow waist for
+// unknown→T narrowing: the two `as` casts below are the only
+// sanctioned ones (consistent-type-assertions is 'never'
+// everywhere else), so every other module narrows through
+// these helpers instead of casting.
 // ============================================================
 
 /**
@@ -33,6 +41,19 @@ export function extractNumber(
 }
 
 /**
+ * Narrow an unknown value to a plain object record, or undefined when it
+ * is null, an array, or not an object. JSON.parse output, DB rows, and
+ * require()d modules all pass through here, so the orchestration layer's
+ * unknown→Record narrowing happens in exactly one audited place.
+ */
+export function toRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: the orchestration layer's single unknown→Record narrowing; `object` is not assignable to an index-signature type, so the shape check above cannot narrow without this
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+/**
  * Safely extract a nested object from an unknown record.
  * Returns undefined if the key is absent or the value is not a plain object.
  */
@@ -40,11 +61,7 @@ export function extractObject(
   obj: Record<string, unknown>,
   key: string
 ): Record<string, unknown> | undefined {
-  const val = obj[key];
-  return val !== null && typeof val === 'object' && !Array.isArray(val)
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: typeUtils encapsulates unknown->T narrowing (otm#85)
-    ? (val as Record<string, unknown>)
-    : undefined;
+  return toRecord(obj[key]);
 }
 
 /**
@@ -92,7 +109,15 @@ export function extractOneOf<T extends string>(
 ): T | undefined {
   const val = obj[key];
   if (typeof val !== 'string') return undefined;
-  // Cast is safe: gated by the includes() membership check above.
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: typeUtils encapsulates unknown->T narrowing (otm#85)
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sanctioned narrow waist: widening `allowed` for includes() and narrowing `val` back to T are the two halves of the one membership check on this line
   return (allowed as readonly string[]).includes(val) ? (val as T) : undefined;
+}
+
+/**
+ * Message of a caught value. catch clauses receive `unknown`; this is
+ * the single place that turns one into text, so call sites never need
+ * `(err as Error)`. Non-Error throwables are stringified. Never throws.
+ */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

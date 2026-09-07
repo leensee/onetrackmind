@@ -4,6 +4,7 @@
 // Relevance judgment lives here — assembler receives only what
 // is relevant to the current input.
 // DB client is injected — never constructed here.
+// Logger is injected (trailing parameter) — console-backed default.
 // ============================================================
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -20,6 +21,10 @@ import {
   SessionState,
   EditionConfig,
 } from './types';
+import { extractString, toRecord, errorMessage } from './typeUtils';
+import { Logger, createConsoleLogger } from '../observability/logger';
+
+const defaultLogger: Logger = createConsoleLogger('ContextLoader');
 
 // ── Default Settings ──────────────────────────────────────────
 // Applied for any key absent from user_settings rows.
@@ -61,7 +66,8 @@ export class ContextLoaderError extends Error {
 
 export async function fetchStyleProfile(
   userId: string,
-  db: SupabaseClient
+  db:     SupabaseClient,
+  logger: Logger = defaultLogger
 ): Promise<string> {
   const { data, error } = await db
     .from('style_observations')
@@ -80,18 +86,22 @@ export async function fetchStyleProfile(
 
   // No rows = first session. Empty string is valid — not an error.
   if (!data || data.length === 0) {
-    // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-    console.info(`[ContextLoader] fetchStyleProfile userId=${userId} result=empty (first session)`);
+    logger.info('fetchStyleProfile: empty result (first session)', { userId });
     return '';
   }
 
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-  const row = data[0] as { summary: string };
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[ContextLoader] fetchStyleProfile userId=${userId} resultLength=${row.summary.length}chars`
-  );
-  return row.summary;
+  // Row shape is validated, not cast: a row without a string summary is
+  // corrupt data and surfaces as a typed error rather than a TypeError.
+  const summary = extractString(toRecord(data[0]) ?? {}, 'summary');
+  if (summary === undefined) {
+    throw new ContextLoaderError(
+      'style_observations row missing string summary',
+      userId,
+      'fetchStyleProfile'
+    );
+  }
+  logger.info('fetchStyleProfile', { userId, resultLength: summary.length });
+  return summary;
 }
 
 // ── User Settings Fetch ───────────────────────────────────────
@@ -119,10 +129,12 @@ export type CoerceResult =
 
 // String-union keys on UserSettings. Any key present here must match
 // one of the allowed values; any key absent is treated as a plain string.
-const UNION_VALUES = {
+// Declared with the wide lookup type so indexing by any UserSettings key
+// needs no cast.
+const UNION_VALUES: Partial<Record<keyof UserSettings, readonly string[]>> = {
   voiceResponseMode:            ['always', 'wake_word_only', 'never'],
   defaultSessionOpenPreference: ['summary', 'skip'],
-} as const satisfies Partial<Record<keyof UserSettings, readonly string[]>>;
+};
 
 function isUserSettingsKey(k: string): k is keyof UserSettings {
   return Object.hasOwn(DEFAULT_USER_SETTINGS, k);
@@ -160,22 +172,19 @@ export function coerceSetting(key: keyof UserSettings, raw: string): CoerceResul
     try {
       parsed = JSON.parse(raw);
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): caught-error narrowing at catch boundary
-      return { ok: false, reason: 'malformed_json', detail: (err as Error).message };
+      return { ok: false, reason: 'malformed_json', detail: errorMessage(err) };
     }
     if (!Array.isArray(parsed)) {
       return { ok: false, reason: 'wrong_shape', detail: `expected array, got ${typeof parsed}` };
     }
-    if (!parsed.every(v => typeof v === 'string')) {
+    // Type-predicate `every` narrows parsed to string[] — no cast needed.
+    if (!parsed.every((v): v is string => typeof v === 'string')) {
       return { ok: false, reason: 'wrong_shape', detail: 'array contained non-string element' };
     }
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-    return { ok: true, value: parsed as string[] };
+    return { ok: true, value: parsed };
   }
 
-  const allowed: readonly string[] | undefined =
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-    (UNION_VALUES as Partial<Record<keyof UserSettings, readonly string[]>>)[key];
+  const allowed = UNION_VALUES[key];
   if (allowed && !allowed.includes(raw)) {
     return {
       ok: false,
@@ -189,9 +198,10 @@ export function coerceSetting(key: keyof UserSettings, raw: string): CoerceResul
 }
 
 export async function fetchUserSettings(
-  userId: string,
+  userId:    string,
   editionId: string,
-  db: SupabaseClient
+  db:        SupabaseClient,
+  logger:    Logger = defaultLogger
 ): Promise<UserSettings> {
   const { data, error } = await db
     .from('user_settings')
@@ -207,28 +217,31 @@ export async function fetchUserSettings(
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-  const rows: SettingRow[] = (data ?? []) as SettingRow[];
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[ContextLoader] fetchUserSettings userId=${userId} editionId=${editionId} rows=${rows.length}`
-  );
+  // Row shape is validated, not cast: both columns must be strings.
+  const rows: SettingRow[] = [];
+  for (const raw of data ?? []) {
+    const record       = toRecord(raw);
+    const settingKey   = record ? extractString(record, 'setting_key')   : undefined;
+    const settingValue = record ? extractString(record, 'setting_value') : undefined;
+    if (settingKey === undefined || settingValue === undefined) {
+      throw new ContextLoaderError(
+        'Malformed user_settings row: setting_key and setting_value must be strings',
+        userId,
+        'fetchUserSettings'
+      );
+    }
+    rows.push({ setting_key: settingKey, setting_value: settingValue });
+  }
+  logger.info('fetchUserSettings', { userId, editionId, rows: rows.length });
 
   // Start from defaults; overlay any persisted values.
-  // Cast through unknown to satisfy exactOptionalPropertyTypes — the
-  // index write is safe because key is constrained to keyof UserSettings.
   const settings: UserSettings = { ...DEFAULT_USER_SETTINGS };
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- as-cast audit debt (otm#85): legacy boundary cast pending typed accessor
-  const settingsMap = settings as unknown as Record<string, unknown>;
 
   for (const row of rows) {
     // Unknown keys warn-and-continue — treated as forward-compat drift,
     // same pattern as schemaVersion mismatch in sessionPersistence.
     if (!isUserSettingsKey(row.setting_key)) {
-      // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-      console.warn(
-        `[ContextLoader] unknown user_settings key=${row.setting_key} userId=${userId} — skipping`
-      );
+      logger.warn('unknown user_settings key — skipping', { key: row.setting_key, userId });
       continue;
     }
     const result = coerceSetting(row.setting_key, row.setting_value);
@@ -239,7 +252,10 @@ export async function fetchUserSettings(
         'fetchUserSettings'
       );
     }
-    settingsMap[row.setting_key] = result.value;
+    // Object.assign with a computed key needs no cast; the key is already
+    // constrained to keyof UserSettings by isUserSettingsKey above, and
+    // coerceSetting produced the value shape that key expects.
+    Object.assign(settings, { [row.setting_key]: result.value });
   }
 
   return settings;
@@ -273,7 +289,8 @@ function machineIsReferenced(machine: MachineRef, content: string): boolean {
 export function filterContextForEvent(
   event: ProcessedEvent,
   sessionState: SessionState,
-  _editionConfig: EditionConfig   // reserved for future edition-specific filter tuning
+  _editionConfig: EditionConfig,   // reserved for future edition-specific filter tuning
+  logger: Logger = defaultLogger
 ): ContextualData {
   const { eventType, rawContent } = event;
   const { activeFlags, openItems, consistContext } = sessionState;
@@ -362,10 +379,9 @@ export function filterContextForEvent(
   }
 
   // Fallback — unknown event type: safety flags only, no consist context
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.warn(
-    `[ContextLoader] filterContextForEvent: unhandled eventType='${eventType}' — returning safety flags only.`
-  );
+  logger.warn('filterContextForEvent: unhandled eventType — returning safety flags only', {
+    eventType,
+  });
   return {
     activeFlags: activeFlags.filter(f => f.type === 'safety'),
     openItems:   [],
@@ -376,8 +392,9 @@ export function filterContextForEvent(
 // ── Main Entry Point ──────────────────────────────────────────
 
 export async function loadContext(
-  input: ContextLoaderInput,
-  db: SupabaseClient
+  input:  ContextLoaderInput,
+  db:     SupabaseClient,
+  logger: Logger = defaultLogger
 ): Promise<ContextLoaderOutput> {
   const { event, sessionState, editionConfig } = input;
   const { userId, editionId } = sessionState;
@@ -386,19 +403,20 @@ export async function loadContext(
 
   // Style profile and settings have no dependency on each other — fetch in parallel
   const [styleProfile, userSettings] = await Promise.all([
-    fetchStyleProfile(userId, db),
-    fetchUserSettings(userId, editionId, db),
+    fetchStyleProfile(userId, db, logger),
+    fetchUserSettings(userId, editionId, db, logger),
   ]);
 
   // Relevance filtering is synchronous — no DB dependency
-  const contextualData = filterContextForEvent(event, sessionState, editionConfig);
+  const contextualData = filterContextForEvent(event, sessionState, editionConfig, logger);
 
   const durationMs = Date.now() - startMs;
-  // eslint-disable-next-line no-console -- legacy console site; Logger-seam migration scheduled (otm#27)
-  console.info(
-    `[ContextLoader] loadContext sessionId=${sessionState.sessionId} ` +
-    `userId=${userId} editionId=${editionId} durationMs=${durationMs}`
-  );
+  logger.info('loadContext', {
+    sessionId: sessionState.sessionId,
+    userId,
+    editionId,
+    durationMs,
+  });
 
   return {
     styleProfile,
