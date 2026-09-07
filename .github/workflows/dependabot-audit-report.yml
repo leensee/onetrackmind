@@ -1,0 +1,42 @@
+name: dependabot-audit-report
+
+# Posts a Markdown report as a comment on the Dependabot audit tracking issue
+# (#125 by default). Dispatched by tools/dependabot-audit/audit.sh --report.
+#
+# Why a workflow instead of `gh issue comment` from the bench Mac: the comment
+# must be authored by github-actions[bot], not by the owner's own token — GitHub
+# never notifies you about your own comments, and the notification email is the
+# whole point of the report.
+
+on:
+  workflow_dispatch:
+    inputs:
+      report_b64:
+        description: Base64-encoded Markdown report (single line)
+        required: true
+        type: string
+      issue:
+        description: Tracking issue number to comment on
+        required: false
+        default: "125"
+        type: string
+
+# Least privilege: the job only needs to write one issue comment.
+permissions:
+  issues: write
+
+jobs:
+  post:
+    name: post
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decode and post the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT_B64: ${{ inputs.report_b64 }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REPORT_B64" | base64 -d > report.md
+          test -s report.md
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file report.md
