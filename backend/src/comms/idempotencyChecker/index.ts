@@ -35,7 +35,7 @@
 // ============================================================
 
 import { randomUUID } from 'crypto';
-import { SqliteClient, DiagnosticSeverity } from '../../orchestration/types';
+import { SqliteClient, DiagnosticSeverity } from '../../db/types';
 import { Logger } from '../../observability/logger';
 import { CommsProvider, IdempotencyProvenance } from '../../db/schemaConstants';
 import { IdempotencyKeyRow, idempotencyKeysToDb } from '../../db/mapping/idempotencyKeys';

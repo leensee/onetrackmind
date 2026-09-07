@@ -69,9 +69,10 @@ export function sendRegenLimitMessage(
 // if provided. Logs locally if both fail.
 // Uses fetch (Node 18+ built-in) — no new HTTP dependency.
 // token: GITHUB_FEEDBACK_TOKEN from environment (injected by caller).
-// options.github: edition-specific GitHub fields (repo, titleFormat).
+// options.github: edition-specific GitHub fields (repo, titleFormat, labels).
 //   Required when token is present; ignored (and not required) when absent.
-//   repo: from AuditConfig.githubRepo; titleFormat: from EditionConfig.feedbackIssueTitleFormat.
+//   repo: from AuditConfig.githubRepo; titleFormat: from EditionConfig.feedbackIssueTitleFormat;
+//   labels: from EditionConfig.feedbackIssueLabels (OTM v1: DEFAULT_FEEDBACK_ISSUE_LABELS).
 // options.fallbackEmailFn: edition-agnostic — caller provides, gate doesn't
 // know which email provider is in use. Receives the full FeedbackPayload
 // so the caller doesn't have to reconstruct or re-serialize it.
@@ -79,10 +80,17 @@ export function sendRegenLimitMessage(
 // Callers that only use email fallback (no token, no GitHub) need not
 // supply options.github at all.
 
+// The OTM v1 label set. Editions inject their own through
+// EditionConfig.feedbackIssueLabels; this constant exists so the v1
+// config and its fixtures reference one value instead of re-typing
+// literals that downstream triage automation depends on.
+export const DEFAULT_FEEDBACK_ISSUE_LABELS: readonly string[] = ['audit-failure', 'regen-limit-reached'];
+
 export interface FeedbackSubmitOptions {
   github?: {
     repo:        string;
     titleFormat: string;
+    labels:      readonly string[];
   };
   fallbackEmailFn?: (payload: FeedbackPayload) => Promise<void>;
   logger?: Logger;
@@ -151,11 +159,21 @@ export async function submitFeedback(
     );
   }
 
+  // A blank label would fail at GitHub with a 422 after the payload has
+  // already left; catch the misconfiguration here with a typed error instead.
+  if (github.labels.some(label => label.trim() === '')) {
+    throw new ApprovalGateError(
+      `Feedback submission failed — labels must be non-blank strings (got: ${JSON.stringify(github.labels)})`,
+      payload.sessionId,
+      'feedback_error'
+    );
+  }
+
   const issueUrl = `https://api.github.com/repos/${github.repo}/issues`;
   const issueBody = {
     title:  github.titleFormat.replaceAll('{sessionId}', payload.sessionId),
     body:   JSON.stringify(payload, null, 2),
-    labels: ['audit-failure', 'regen-limit-reached'],
+    labels: [...github.labels],
   };
 
   let githubSucceeded = false;

@@ -17,7 +17,7 @@ import {
   runMigrations,
   splitSqlStatements,
 } from '../src/db/migrationRunner';
-import { SqliteClient } from '../src/orchestration/types';
+import { SqliteClient } from '../src/db/types';
 
 const REAL_MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
 

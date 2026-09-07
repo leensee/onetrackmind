@@ -18,7 +18,7 @@ import { FixtureEntry, MANIFEST } from './fixtures/manifest';
 import { TABLE_SHAPES } from './fixtures/constraints';
 import { createSqliteClient, ManagedSqliteClient } from '../src/db/sqliteClient';
 import { runMigrations } from '../src/db/migrationRunner';
-import { SqliteClient } from '../src/orchestration/types';
+import { SqliteClient } from '../src/db/types';
 import { Logger, LogFields, noopLogger } from '../src/observability/logger';
 import {
   CommsChannel,

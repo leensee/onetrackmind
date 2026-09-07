@@ -14,13 +14,13 @@ import {
   SessionState,
   SessionLogEntry,
   SessionLogEntryType,
-  SqliteClient,
   ActiveFlag,
   OpenItem,
   Message,
   ConsistContext,
   MachineRef,
 } from './types';
+import { SqliteClient } from '../db/types';
 import {
   extractString,
   extractNumber,

@@ -42,7 +42,7 @@
 // ============================================================
 
 import { randomUUID } from 'crypto';
-import { SqliteClient, DiagnosticSeverity } from '../../orchestration/types';
+import { SqliteClient, DiagnosticSeverity } from '../../db/types';
 import { Logger } from '../../observability/logger';
 import { CommsProvider } from '../../db/schemaConstants';
 import { CommsLogRow, commsLogToDb } from '../../db/mapping/commsLog';
