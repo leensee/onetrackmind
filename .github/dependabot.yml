@@ -1,3 +1,10 @@
+# Dependabot version updates. Security updates are separate and cover every
+# manifest regardless of this file.
+#
+# Grouping rationale (#128): main has strict status checks, so every merged
+# PR puts the others BEHIND and each one costs a rebase + CI round. Grouping
+# minor/patch bumps turns a six-PR week into two or three PRs. Majors are
+# deliberately left ungrouped so each arrives as its own visible PR.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -5,8 +12,32 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      backend-production:
+        dependency-type: production
+        update-types: [minor, patch]
+      backend-development:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  # Bench corpus receiver (tools/bench-receiver). Previously not listed, so it
+  # only received security updates — and none was raised for a nested copy of
+  # fast-uri, leaving eight high alerts open until a manual bump (PR #127).
+  - package-ecosystem: npm
+    directory: /tools/bench-receiver
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      bench-receiver:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ["*"]
