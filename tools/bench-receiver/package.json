@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.0",
-    "fastify": "^5.12.3"
+    "fastify": "^5.12.5"
   },
   "devDependencies": {
-    "@types/node": "^26.4.1",
-    "tsx": "^4.23.13",
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
 }
