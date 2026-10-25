@@ -13,6 +13,7 @@ import {
   runModelAudit,
   ModelAuditError,
   MODEL_AUDIT_MODEL,
+  MODEL_AUDIT_OUTPUT_SCHEMA,
 } from '../src/orchestration/modelAudit';
 import {
   ProcessedEvent,
@@ -83,12 +84,14 @@ interface MockCreateOptions {
   responseText?:  string;
   rejectWith?:    Error;
   neverResolve?:  boolean;
+  onCreate?:      (params: Record<string, unknown>) => void;
 }
 
 function makeMockClient(options: MockCreateOptions): Anthropic {
   const mock = {
     messages: {
-      create: (): Promise<unknown> => {
+      create: (params: Record<string, unknown>): Promise<unknown> => {
+        options.onCreate?.(params);
         if (options.neverResolve) return new Promise(() => { /* intentionally hangs */ });
         if (options.rejectWith)   return Promise.reject(options.rejectWith);
         return Promise.resolve({
@@ -312,6 +315,26 @@ async function runTests(): Promise<void> {
     const result = await runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH);
     assert(result.result === 'pass', 'result must be pass');
     assert(result.issue === undefined, 'issue must be undefined');
+  });
+
+  await test('runModelAudit: request carries the structured-output schema and no sampling params', async () => {
+    let captured: Record<string, unknown> | undefined;
+    const client = makeMockClient({ onCreate: (params) => { captured = params; } });
+    await runModelAudit(BASE_AUDIT_INPUT, client, MODEL_AUDIT_PROMPT_PATH);
+    assert(captured !== undefined, 'create must be called');
+    const outputConfig = captured?.['output_config'] as { format?: { type?: string; schema?: unknown } } | undefined;
+    assert(outputConfig?.format?.type === 'json_schema', 'output_config.format.type must be json_schema');
+    assert(outputConfig?.format?.schema === MODEL_AUDIT_OUTPUT_SCHEMA, 'schema must be MODEL_AUDIT_OUTPUT_SCHEMA');
+    assert(!('temperature' in (captured ?? {})), 'temperature must not be sent');
+  });
+
+  await test('MODEL_AUDIT_OUTPUT_SCHEMA: result enum matches the parser and only result is required', () => {
+    assert(
+      JSON.stringify(MODEL_AUDIT_OUTPUT_SCHEMA.properties.result.enum) === JSON.stringify(['pass', 'flag', 'revise']),
+      'result enum must be pass|flag|revise'
+    );
+    assert(JSON.stringify(MODEL_AUDIT_OUTPUT_SCHEMA.required) === JSON.stringify(['result']), 'only result is required');
+    assert(MODEL_AUDIT_OUTPUT_SCHEMA.additionalProperties === false, 'additionalProperties must be false');
   });
 
   await test('runModelAudit: returns flag result with issue and correction', async () => {

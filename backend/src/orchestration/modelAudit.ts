@@ -32,8 +32,21 @@ import { Logger, createConsoleLogger } from '../observability/logger';
 
 export const MODEL_AUDIT_MODEL       = 'claude-sonnet-4-6';
 export const MODEL_AUDIT_MAX_TOKENS  = 500;
-export const MODEL_AUDIT_TEMPERATURE = 0;    // compliance check — deterministic
 export const MODEL_AUDIT_TIMEOUT_MS  = 30_000;
+
+// Structured-output schema (output_config.format). The API constrains the
+// response to this shape; parseAuditResponse still enforces the non-pass
+// issue/correction rule, which the schema cannot express.
+export const MODEL_AUDIT_OUTPUT_SCHEMA = {
+  type: 'object',
+  properties: {
+    result:     { type: 'string', enum: ['pass', 'flag', 'revise'] },
+    issue:      { type: 'string' },
+    correction: { type: 'string' },
+  },
+  required:             ['result'],
+  additionalProperties: false,
+} as const;
 
 const defaultLogger: Logger = createConsoleLogger('ModelAudit');
 
@@ -239,10 +252,10 @@ export async function runModelAudit(
   try {
     const apiCallPromise = client.messages.create({
       model:       MODEL_AUDIT_MODEL,
-      max_tokens:  MODEL_AUDIT_MAX_TOKENS,
-      temperature: MODEL_AUDIT_TEMPERATURE,
-      system:      auditPrompt,
-      messages:    [{ role: 'user', content: userPrompt }],
+      max_tokens:    MODEL_AUDIT_MAX_TOKENS,
+      system:        auditPrompt,
+      messages:      [{ role: 'user', content: userPrompt }],
+      output_config: { format: { type: 'json_schema', schema: MODEL_AUDIT_OUTPUT_SCHEMA } },
     });
 
     const response = await Promise.race([apiCallPromise, timeoutPromise]);
