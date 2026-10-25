@@ -41,7 +41,7 @@ Results land in [findings.md](findings.md) as each question is answered. Utteran
 | Device | Role | Signing |
 |---|---|---|
 | iPhone Pro (dev) | All bench-phase work (Q1–Q3), stability soak | Free personal team (7-day profiles acceptable; re-signed in person) |
-| iPhone Pro (field) + older iPhone (floor) | Field session (Q4) only | **Paid Apple Developer Program, TestFlight internal testing.** Internal testers install over the air — no UDID registration, no cable, no developer present; builds are installable minutes after processing (internal testing skips Beta App Review) and stay valid 90 days, covering the 7–10-day hitch with margin. Ad-hoc is dropped: it requires per-device UDID registration — a cable or walking the tester through a capture site — and the field session is now fully remote. Free profiles remain prohibited on field phones: a 7-day profile would expire mid-hitch with no cable and no developer present. |
+| iPhone Pro (field) + older iPhone (floor) | Field session (Q4) only | **Paid Apple Developer Program, TestFlight internal testing.** Internal testers install over the air — no UDID registration, no cable, no developer present; builds are installable minutes after processing (internal testing skips Beta App Review) and stay valid 90 days, covering the 7–10-day cycle with margin. Ad-hoc is dropped: it requires per-device UDID registration — a cable or walking the tester through a capture site — and the field session is now fully remote. Free profiles remain prohibited on field phones: a 7-day profile would expire mid-cycle with no cable and no developer present. |
 
 The **older iPhone is the floor, not a proxy** — capability results transfer newer→older; performance and audio-quality results do not. All WER arms run on the floor device.
 
@@ -49,7 +49,7 @@ The **older iPhone is the floor, not a proxy** — capability results transfer n
 
 **Soak record — PASSED (2026-08-05, dev iPhone, iOS 26.5.2, build 1.0.0 (2)).** 76 audio captures across the day: 62 clean-room (recorded through the guided walkthrough, its first real use) + 14 disruption captures covering incoming call declined and answered mid-capture, route flap both directions with the clip headset, backgrounding mid-capture, offline queueing (Wi-Fi off, receiver unreachable), three Siri triggers (warm, cold, with backlog), and force-quit with pending entries. Zero crashes; zero lost queue entries — phone reported `pending 0 · parked 0 · synced 80`, Mac corpus held exactly 80 entries (76 audio + 4 notes), receiver log: 80 unique stores, 0 storage errors. The gate is open.
 
-**Fallback (live option, not last resort):** if paid enrollment and the first processed TestFlight build slip past the hitch, produce the Q4 corpus with the built-in Voice Memos app (Voice Isolation available on iOS 26+; input selectable in Control Center). Approximates rather than replicates the app's own session; cannot answer Q1/Q3 (already answered by then). Missing the hitch costs 12–17 days, so exercise this rather than wait.
+**Fallback (live option, not last resort):** if paid enrollment and the first processed TestFlight build slip past the cycle, produce the Q4 corpus with the built-in Voice Memos app (Voice Isolation available on iOS 26+; input selectable in Control Center). Approximates rather than replicates the app's own session; cannot answer Q1/Q3 (already answered by then). Missing the cycle costs 12–17 days, so exercise this rather than wait.
 
 ### Distribution readiness — audited 2026-07-23 (pre-enrollment)
 
