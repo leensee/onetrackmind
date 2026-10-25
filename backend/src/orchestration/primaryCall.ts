@@ -17,7 +17,6 @@ import { Logger, createConsoleLogger } from '../observability/logger';
 
 export const PRIMARY_CALL_MODEL       = 'claude-sonnet-4-6';
 export const PRIMARY_CALL_MAX_TOKENS  = 4_000;
-export const PRIMARY_CALL_TEMPERATURE = 0.7;  // Phase 8 gate: test 0.5–1.0 for field calibration
 export const PRIMARY_CALL_TIMEOUT_MS  = 30_000;
 
 const defaultLogger: Logger = createConsoleLogger('PrimaryCall');
@@ -124,7 +123,6 @@ export async function primaryCall(
     stream = client.messages.stream({
       model:       PRIMARY_CALL_MODEL,
       max_tokens:  PRIMARY_CALL_MAX_TOKENS,
-      temperature: PRIMARY_CALL_TEMPERATURE,
       system:      assemblerOutput.systemPrompt,
       messages:    assemblerOutput.messages.map(m => ({
         role:    m.role,
